@@ -1,97 +1,103 @@
 // src/App.js
 import React, { useState } from 'react';
-import { useTransactions } from './hooks/use_transactions_hook';
+import { BackendAuthProvider, useBackendAuth } from './hooks/use_backend_auth';
+import BackendLoginScreen from './components/auth/backend_login_screen';
+import BackendRegisterScreen from './components/auth/backend_register_screen';
 import HomeView from './components/views/home_view';
 import TransactionsView from './components/views/transactions_view';
 import StatsView from './components/views/stats_view';
-import TransactionForm from './components/transactions/transaction_form';
-import './index.css';
+import AdvisorView from './components/views/advisor_view';
+import BottomNavigation from './components/common/bottom_navigation';
+import HeaderComponent from './components/common/header_component';
+import ConnectBankModal from './components/accounts/connect_bank_modal';
 
-const App = () => {
+// Main app content component
+const AppContent = () => {
+  const { user, loading, logout, isAuthenticated } = useBackendAuth();
   const [currentView, setCurrentView] = useState('home');
-  const [showAddTransaction, setShowAddTransaction] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [showConnectBankModal, setShowConnectBankModal] = useState(false);
+  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
 
-  const {
-    transactions,
-    addTransaction,
-    updateTransaction,
-    deleteTransaction,
-    categories,
-    filteredTransactions,
-    metrics
-  } = useTransactions(searchTerm, filterCategory);
+  // Show loading screen while checking authentication
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const handleAddTransaction = (transactionData) => {
-    if (editingTransaction) {
-      updateTransaction(editingTransaction.id, transactionData);
-      setEditingTransaction(null);
-    } else {
-      addTransaction(transactionData);
+  // Show authentication screens if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        {authMode === 'login' ? (
+          <BackendLoginScreen onSwitchToRegister={() => setAuthMode('register')} />
+        ) : (
+          <BackendRegisterScreen onSwitchToLogin={() => setAuthMode('login')} />
+        )}
+      </div>
+    );
+  }
+
+  // Main app interface for authenticated users
+  const renderCurrentView = () => {
+    switch (currentView) {
+      case 'home':
+        return <HomeView onConnectBank={() => setShowConnectBankModal(true)} />;
+      case 'transactions':
+        return <TransactionsView />;
+      case 'stats':
+        return <StatsView />;
+      case 'advisor':
+        return <AdvisorView />;
+      default:
+        return <HomeView onConnectBank={() => setShowConnectBankModal(true)} />;
     }
-    setShowAddTransaction(false);
-  };
-
-  const handleEditTransaction = (transaction) => {
-    setEditingTransaction(transaction);
-    setShowAddTransaction(true);
-  };
-
-  const handleCloseForm = () => {
-    setShowAddTransaction(false);
-    setEditingTransaction(null);
-  };
-
-  const commonProps = {
-    currentView,
-    setCurrentView,
-    setShowAddTransaction,
-    categories,
-    metrics
   };
 
   return (
-    <div className="app">
-      {currentView === 'home' && (
-        <HomeView
-          {...commonProps}
-          transactions={filteredTransactions.slice(0, 3)}
-          onEditTransaction={handleEditTransaction}
-          onDeleteTransaction={deleteTransaction}
-        />
-      )}
-
-      {currentView === 'transactions' && (
-        <TransactionsView
-          {...commonProps}
-          transactions={filteredTransactions}
-          searchTerm={searchTerm}
-          setSearchTerm={setSearchTerm}
-          filterCategory={filterCategory}
-          setFilterCategory={setFilterCategory}
-          onEditTransaction={handleEditTransaction}
-          onDeleteTransaction={deleteTransaction}
-        />
-      )}
-
-      {currentView === 'stats' && (
-        <StatsView
-          {...commonProps}
-          transactions={transactions}
-        />
-      )}
-
-      {showAddTransaction && (
-        <TransactionForm
-          categories={categories}
-          editingTransaction={editingTransaction}
-          onSubmit={handleAddTransaction}
-          onClose={handleCloseForm}
-        />
-      )}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <HeaderComponent 
+        user={user} 
+        onLogout={logout}
+        onConnectBank={() => setShowConnectBankModal(true)}
+      />
+      
+      {/* Main Content */}
+      <main className="pb-20">
+        {renderCurrentView()}
+      </main>
+      
+      {/* Bottom Navigation */}
+      <BottomNavigation 
+        currentView={currentView} 
+        onViewChange={setCurrentView} 
+      />
+      
+      {/* Connect Bank Modal */}
+      <ConnectBankModal
+        isOpen={showConnectBankModal}
+        onClose={() => setShowConnectBankModal(false)}
+        onSuccess={() => {
+          setShowConnectBankModal(false);
+          // Optionally refresh data or show success message
+        }}
+      />
     </div>
+  );
+};
+
+// Main App component with providers
+const App = () => {
+  return (
+    <BackendAuthProvider>
+      <AppContent />
+    </BackendAuthProvider>
   );
 };
 

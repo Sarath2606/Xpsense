@@ -43,3 +43,61 @@ export const exportTransactions = () => {
   linkElement.setAttribute('download', exportFileDefaultName);
   linkElement.click();
 };
+
+// Budget storage functions
+export const loadBudgets = () => {
+  try {
+    const savedBudgets = localStorage.getItem(STORAGE_KEYS.BUDGETS);
+    if (savedBudgets) {
+      return JSON.parse(savedBudgets);
+    }
+    // Return empty array if no saved budgets exist
+    return [];
+  } catch (error) {
+    console.error('Error loading budgets:', error);
+    return [];
+  }
+};
+
+export const saveBudgets = (budgets) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.BUDGETS, JSON.stringify(budgets));
+  } catch (error) {
+    console.error('Error saving budgets:', error);
+  }
+};
+
+export const clearBudgets = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.BUDGETS);
+  } catch (error) {
+    console.error('Error clearing budgets:', error);
+  }
+};
+
+// Goals storage functions
+export const loadGoals = () => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEYS.GOALS);
+    return saved ? JSON.parse(saved) : [];
+  } catch (e) {
+    console.error('Error loading goals:', e);
+    return [];
+  }
+};
+
+export const saveGoals = (goals) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.GOALS, JSON.stringify(goals));
+  } catch (e) {
+    console.error('Error saving goals:', e);
+  }
+};
+
+export const clearGoals = () => {
+  try {
+    localStorage.removeItem(STORAGE_KEYS.GOALS);
+  } catch (e) {
+    console.error('Error clearing goals:', e);
+  }
+};

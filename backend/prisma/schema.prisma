@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  connectedAccounts ConnectedAccount[]
+  transactions      Transaction[]
+  budgets           Budget[]
+
+  @@map("users")
+}
+
+model ConnectedAccount {
+  id                String   @id @default(cuid())
+  userId            String
+  accountId         String   // Mastercard account ID
+  accountName       String
+  accountType       String   // CHECKING, SAVINGS, CREDIT, etc.
+  bankName          String
+  accountNumber     String?  // Masked account number
+  balance           Decimal  @default(0)
+  currency          String   @default("USD")
+  accessToken       String   // Encrypted OAuth access token
+  refreshToken      String?  // Encrypted OAuth refresh token
+  tokenExpiresAt    DateTime?
+  isActive          Boolean  @default(true)
+  lastSyncAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([userId, accountId])
+  @@map("connected_accounts")
+}
+
+model Transaction {
+  id                String   @id @default(cuid())
+  userId            String
+  connectedAccountId String?
+  transactionId     String?  // Mastercard transaction ID
+  description       String
+  amount            Decimal
+  currency          String   @default("USD")
+  category          String?
+  transactionType   String   // DEBIT, CREDIT
+  date              DateTime
+  isImported        Boolean  @default(false) // Whether imported from bank or manual
+  metadata          Json?    // Additional transaction data
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connectedAccount ConnectedAccount? @relation(fields: [connectedAccountId], references: [id])
+
+  @@map("transactions")
+}
+
+model Budget {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  amount      Decimal
+  spent       Decimal  @default(0)
+  period      String   // MONTHLY, YEARLY
+  category    String?
+  startDate   DateTime
+  endDate     DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("budgets")
+}
+
+model WebhookEvent {
+  id        String   @id @default(cuid())
+  eventType String
+  payload   Json
+  processed Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("webhook_events")
+}

@@ -60,3 +60,44 @@ export const calculateCategorySpending = (transactions, categories) => {
     };
   }).filter(cat => cat.total > 0).sort((a, b) => b.total - a.total);
 };
+
+// Get time-based greeting
+export const getTimeBasedGreeting = () => {
+  const hour = new Date().getHours();
+  
+  if (hour < 12) {
+    return 'Good Morning';
+  } else if (hour < 17) {
+    return 'Good Afternoon';
+  } else {
+    return 'Good Evening';
+  }
+};
+
+// Get user-friendly display name
+export const getUserDisplayName = (userName) => {
+  if (!userName) return 'User';
+  
+  // If it's a full name, get the first name
+  const nameParts = userName.trim().split(' ');
+  return nameParts[0];
+};
+
+// Get personalized greeting with user name and time (separate parts)
+export const getPersonalizedGreetingParts = (userName) => {
+  const timeGreeting = getTimeBasedGreeting();
+  const displayName = getUserDisplayName(userName);
+  
+  return {
+    greeting: timeGreeting,
+    name: displayName
+  };
+};
+
+// Get personalized greeting with user name and time (combined - for backward compatibility)
+export const getPersonalizedGreeting = (userName) => {
+  const timeGreeting = getTimeBasedGreeting();
+  const displayName = getUserDisplayName(userName);
+  
+  return `${timeGreeting}, ${displayName}!`;
+};

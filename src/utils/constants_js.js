@@ -47,5 +47,7 @@ export const INITIAL_TRANSACTIONS = [
 ];
 
 export const STORAGE_KEYS = {
-  TRANSACTIONS: 'transactions'
+  TRANSACTIONS: 'transactions',
+  BUDGETS: 'budgets',
+  GOALS: 'goals'
 };
