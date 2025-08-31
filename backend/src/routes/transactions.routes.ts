@@ -1,14 +1,14 @@
 import { Router } from 'express';
 import { transactionsController } from '../controllers/transactions.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateFirebaseToken } from '../middleware/firebase-auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticateToken);
+router.use(authenticateFirebaseToken);
 
 // Get all transactions with filtering and pagination
-router.get('/', transactionsController.getTransactions);
+router.get('/', transactionsController.getAllTransactions);
 
 // Get transaction statistics
 router.get('/stats', transactionsController.getTransactionStats);

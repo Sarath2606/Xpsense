@@ -11,44 +11,130 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String?
+  firebaseUid String?  @unique // Firebase UID for authentication
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  connectedAccounts ConnectedAccount[]
-  transactions      Transaction[]
-  budgets           Budget[]
+  consents           Consent[]
+  connectedAccounts  ConnectedAccount[]
+  transactions       Transaction[]
+  budgets            Budget[]
+  auditLogs          AuditLog[]
 
   @@map("users")
+}
+
+// CDR-Compliant Consent Management
+model Consent {
+  id             String   @id @default(cuid())
+  userId         String
+  institutionId  String
+  status         ConsentStatus @default(PENDING)
+  scopes         String   // space-separated scopes
+  consentRef     String   @unique // Mastercard consent/session ID
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  institution Institution @relation(fields: [institutionId], references: [id])
+  tokens      Token?
+  accounts    ConnectedAccount[]
+
+  @@map("consents")
+}
+
+enum ConsentStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+// OAuth Token Management
+model Token {
+  id            String   @id @default(cuid())
+  consentId     String   @unique
+  accessToken   String   // Encrypted
+  refreshToken  String?  // Encrypted
+  tokenType     String
+  scope         String
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  consent Consent @relation(fields: [consentId], references: [id], onDelete: Cascade)
+
+  @@map("tokens")
+}
+
+// Financial Institution Registry
+model Institution {
+  id          String   @id @default(cuid())
+  name        String
+  code        String   @unique // e.g., "AUS-CDR-Mastercard"
+  logoUrl     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  consents    Consent[]
+
+  @@map("institutions")
 }
 
 model ConnectedAccount {
   id                String   @id @default(cuid())
   userId            String
+  consentId         String
   accountId         String   // Mastercard account ID
   accountName       String
   accountType       String   // CHECKING, SAVINGS, CREDIT, etc.
   bankName          String
   accountNumber     String?  // Masked account number
   balance           Decimal  @default(0)
-  currency          String   @default("USD")
-  accessToken       String   // Encrypted OAuth access token
-  refreshToken      String?  // Encrypted OAuth refresh token
-  tokenExpiresAt    DateTime?
-  isActive          Boolean  @default(true)
+  availableBalance  Decimal? // Available balance if different
+  currency          String   @default("AUD")
+  status            AccountStatus @default(ACTIVE)
   lastSyncAt        DateTime?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   // Relations
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consent      Consent       @relation(fields: [consentId], references: [id], onDelete: Cascade)
   transactions Transaction[]
+  balances     Balance[]
 
   @@unique([userId, accountId])
   @@map("connected_accounts")
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+// Balance History for CDR Compliance
+model Balance {
+  id         String   @id @default(cuid())
+  accountId  String
+  asAt       DateTime
+  current    Decimal  @db.Decimal(20,4)
+  available  Decimal? @db.Decimal(20,4)
+  creditLimit Decimal? @db.Decimal(20,4)
+  currency   String
+
+  account ConnectedAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId, asAt])
+  @@map("balances")
 }
 
 model Transaction {
@@ -57,8 +143,8 @@ model Transaction {
   connectedAccountId String?
   transactionId     String?  // Mastercard transaction ID
   description       String
-  amount            Decimal
-  currency          String   @default("USD")
+  amount            Decimal  @db.Decimal(20,4)
+  currency          String   @default("AUD")
   category          String?
   transactionType   String   // DEBIT, CREDIT
   date              DateTime
@@ -71,6 +157,7 @@ model Transaction {
   user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   connectedAccount ConnectedAccount? @relation(fields: [connectedAccountId], references: [id])
 
+  @@index([connectedAccountId, date])
   @@map("transactions")
 }
 
@@ -92,6 +179,47 @@ model Budget {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("budgets")
+}
+
+// CDR Audit Logging
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  action    String   // CONSENT_START, TOKEN_EXCHANGE, FETCH_ACCOUNTS, etc
+  details   Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("audit_logs")
+}
+
+// Background Job Management
+model Job {
+  id        String   @id @default(cuid())
+  name      String
+  payload   Json?
+  runAt     DateTime
+  status    JobStatus @default(PENDING)
+  error     String?
+  attempts  Int      @default(0)
+  maxAttempts Int    @default(3)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, runAt])
+  @@map("jobs")
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 model WebhookEvent {

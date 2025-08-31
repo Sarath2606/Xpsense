@@ -21,7 +21,7 @@ export class AccountsController {
 
     try {
       const accounts = await prisma.connectedAccount.findMany({
-        where: { userId: req.user.id, isActive: true },
+        where: { userId: req.user.id, status: 'ACTIVE' },
         select: {
           id: true,
           accountId: true,
@@ -73,7 +73,7 @@ export class AccountsController {
         where: {
           id: accountId,
           userId: req.user.id,
-          isActive: true
+          status: 'ACTIVE'
         },
         select: {
           id: true,
@@ -164,7 +164,7 @@ export class AccountsController {
         where: {
           id: accountId,
           userId: req.user.id,
-          isActive: true
+          status: 'ACTIVE'
         }
       });
 
@@ -213,7 +213,7 @@ export class AccountsController {
         where: {
           id: accountId,
           userId: req.user.id,
-          isActive: true
+          status: 'ACTIVE'
         }
       });
 
@@ -227,7 +227,7 @@ export class AccountsController {
       // Mark account as inactive
       await prisma.connectedAccount.update({
         where: { id: accountId },
-        data: { isActive: false }
+        data: { status: 'INACTIVE' }
       });
 
       logger.info(`Disconnected account ${accountId} for user ${req.user.id}`);
@@ -258,7 +258,7 @@ export class AccountsController {
 
     try {
       const accounts = await prisma.connectedAccount.findMany({
-        where: { userId: req.user.id, isActive: true },
+        where: { userId: req.user.id, status: 'ACTIVE' },
         select: {
           id: true,
           accountName: true,
@@ -302,7 +302,7 @@ export class AccountsController {
 
     try {
       const accounts = await prisma.connectedAccount.findMany({
-        where: { userId: req.user.id, isActive: true },
+        where: { userId: req.user.id, status: 'ACTIVE' },
         select: {
           balance: true,
           currency: true

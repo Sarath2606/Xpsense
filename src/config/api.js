@@ -1,70 +1,115 @@
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+import { auth } from './firebase';
+
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
   }
 
-  // Get auth token from localStorage
-  getAuthToken() {
-    return localStorage.getItem('authToken');
+  // Get Firebase auth token
+  async getAuthToken() {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No authenticated user');
+      }
+      return await currentUser.getIdToken();
+    } catch (error) {
+      console.error('Failed to get auth token:', error);
+      throw error;
+    }
   }
 
-  // Set auth token in localStorage
-  setAuthToken(token) {
-    localStorage.setItem('authToken', token);
-  }
-
-  // Remove auth token from localStorage
-  removeAuthToken() {
-    localStorage.removeItem('authToken');
-  }
-
-  // Create headers with authentication
-  getHeaders(includeAuth = true) {
+  // Create headers with Firebase authentication
+  async getHeaders(includeAuth = true) {
     const headers = {
       'Content-Type': 'application/json',
     };
 
     if (includeAuth) {
-      const token = this.getAuthToken();
-      if (token) {
+      try {
+        const token = await this.getAuthToken();
         headers['Authorization'] = `Bearer ${token}`;
+      } catch (error) {
+        console.error('Failed to get auth token for headers:', error);
+        // Don't throw here, let the request proceed without auth
       }
     }
 
     return headers;
   }
 
-  // Generic API request method
+  // Generic API request method with retry logic
   async request(endpoint, options = {}) {
-    const url = `${this.baseURL}${endpoint}`;
-    const config = {
-      headers: this.getHeaders(options.includeAuth !== false),
-      ...options,
-    };
+    const maxRetries = options.maxRetries || 3;
+    const baseDelay = options.baseDelay || 1000; // 1 second
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const url = `${this.baseURL}${endpoint}`;
+        const headers = await this.getHeaders(options.includeAuth !== false);
+        
+        const config = {
+          headers,
+          ...options,
+        };
 
-    try {
-      const response = await fetch(url, config);
-      
-      // Handle 401 Unauthorized
-      if (response.status === 401) {
-        this.removeAuthToken();
-        window.location.href = '/login';
-        throw new Error('Unauthorized - Please login again');
+        const response = await fetch(url, config);
+        
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+          console.error('Unauthorized request - user may need to re-authenticate');
+          throw new Error('Unauthorized - Please login again');
+        }
+
+        // Handle rate limiting with retry
+        if (response.status === 429) {
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
+            console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          } else {
+            throw new Error('Rate limit exceeded - please try again later');
+          }
+        }
+
+        // Handle other errors
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          const message = errorData.error || errorData.message || errorData.errorMessage || `HTTP error! status: ${response.status}`;
+          // Do not retry on known service outages
+          if (response.status === 503) {
+            const err = new Error(message);
+            err.name = 'ServiceUnavailable';
+            throw err;
+          }
+          throw new Error(message);
+        }
+
+        // Return JSON response
+        return await response.json();
+      } catch (error) {
+        if (attempt === maxRetries) {
+          console.error('API Request Error:', error);
+          throw error;
+        }
+        // For non-retryable errors, throw immediately
+        if (
+          error.message.includes('Unauthorized') ||
+          error.message.includes('Rate limit exceeded') ||
+          error.name === 'ServiceUnavailable' ||
+          (typeof error.message === 'string' && (
+            error.message.includes('Service Unavailable') ||
+            error.message.includes('503')
+          ))
+        ) {
+          throw error;
+        }
+        // For other errors, continue to retry
+        console.log(`Request failed, retrying... (attempt ${attempt + 1}/${maxRetries})`);
       }
-
-      // Handle other errors
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-      }
-
-      // Return JSON response
-      return await response.json();
-    } catch (error) {
-      console.error('API Request Error:', error);
-      throw error;
     }
   }
 
@@ -106,8 +151,12 @@ class ApiService {
 
   // Connected accounts endpoints
   accounts = {
-    getAll: () => 
-      this.request('/accounts'),
+    getAll: async () => {
+      console.log('API: Fetching all accounts...');
+      const result = await this.request('/accounts');
+      console.log('API: Accounts result:', result);
+      return result;
+    },
 
     getById: (accountId) => 
       this.request(`/accounts/${accountId}`),
@@ -127,11 +176,19 @@ class ApiService {
         method: 'DELETE',
       }),
 
-    getSyncStatus: () => 
-      this.request('/accounts/sync-status'),
+    getSyncStatus: async () => {
+      console.log('API: Fetching sync status...');
+      const result = await this.request('/accounts/sync-status');
+      console.log('API: Sync status result:', result);
+      return result;
+    },
 
-    getBalanceSummary: () => 
-      this.request('/accounts/balance-summary'),
+    getBalanceSummary: async () => {
+      console.log('API: Fetching balance summary...');
+      const result = await this.request('/accounts/balance-summary');
+      console.log('API: Balance summary result:', result);
+      return result;
+    },
   };
 
   // Transactions endpoints
@@ -177,6 +234,26 @@ class ApiService {
     markEventProcessed: (eventId) => 
       this.request(`/webhooks/events/${eventId}/processed`, {
         method: 'PATCH',
+      }),
+  };
+
+  // Consent endpoints
+  consents = {
+    start: (durationDays = 180) => 
+      this.request('/consents/start', {
+        method: 'POST',
+        body: JSON.stringify({ durationDays }),
+      }),
+
+    getDetails: (consentId) => 
+      this.request(`/consents/${consentId}`),
+
+    getAll: () => 
+      this.request('/consents'),
+
+    revoke: (consentId) => 
+      this.request(`/consents/${consentId}`, {
+        method: 'DELETE',
       }),
   };
 

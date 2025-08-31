@@ -1,281 +1,256 @@
-# Xpenses Backend
+# Xpenses Backend - Mastercard Open Banking Integration
 
-A comprehensive backend API for the Xpenses application with Mastercard Open Banking integration.
+## 🎯 Overview
 
-## Features
+This backend service integrates with Mastercard Open Banking API to provide real-time bank account data, transactions, and balances for the Xpenses expense tracking application. **The application now uses Mastercard sandbox data exclusively - no mock data is used.**
 
-- **User Authentication**: JWT-based authentication system
-- **Open Banking Integration**: Mastercard Open Banking API integration
-- **Account Management**: Connect and manage multiple bank accounts
-- **Transaction Sync**: Automatic transaction synchronization from connected accounts
-- **Real-time Updates**: Webhook handling for real-time data updates
-- **Transaction Management**: CRUD operations for transactions
-- **Data Security**: Encrypted storage of sensitive data
-- **Comprehensive Logging**: Detailed logging for debugging and monitoring
+## 🚀 Quick Start
 
-## Tech Stack
-
-- **Runtime**: Node.js with TypeScript
-- **Framework**: Express.js
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT tokens
-- **API Integration**: Mastercard Open Banking APIs
-- **Security**: Helmet, CORS, Rate limiting
-- **Logging**: Custom logger with Morgan
-
-## Prerequisites
-
+### Prerequisites
 - Node.js 18+ 
 - PostgreSQL 12+
-- Mastercard Open Banking Developer Account
+- Mastercard Open Banking API credentials
 
-## Installation
+### Installation
 
-1. **Clone the repository**
-   ```bash
-   cd backend
-   ```
+1. **Clone and install dependencies:**
+```bash
+cd backend
+npm install
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   ```
+2. **Set up environment variables:**
+```bash
+cp env.example .env
+# Edit .env with your Mastercard API credentials
+```
 
-3. **Set up environment variables**
-   ```bash
-   cp env.example .env
-   ```
-   
-   Update the `.env` file with your configuration:
-   ```env
-   # Database Configuration
-   DATABASE_URL="postgresql://postgres:2606@localhost:5432/Xpense Backend"
-   
-   # Server Configuration
-   PORT=3001
-   NODE_ENV=development
-   
-   # JWT Configuration
-   JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-   JWT_EXPIRES_IN=7d
-   
-   # Mastercard Open Banking API Configuration
-   MASTERCARD_CLIENT_ID=your-mastercard-client-id
-   MASTERCARD_CLIENT_SECRET=your-mastercard-client-secret
-   MASTERCARD_API_BASE_URL=https://sandbox.api.mastercard.com/open-banking
-   MASTERCARD_AUTH_URL=https://sandbox.api.mastercard.com/oauth2/token
-   
-   # OAuth Redirect URLs
-   OAUTH_REDIRECT_URI=http://localhost:3001/api/auth/callback
-   
-   # CORS Configuration
-   FRONTEND_URL=http://localhost:3000
-   
-   # Rate Limiting
-   RATE_LIMIT_WINDOW_MS=900000
-   RATE_LIMIT_MAX_REQUESTS=100
-   
-   # Logging
-   LOG_LEVEL=debug
-   ```
+3. **Set up database:**
+```bash
+npm run db:generate
+npm run db:push
+```
 
-4. **Set up the database**
-   ```bash
-   # Generate Prisma client
-   npm run db:generate
-   
-   # Push schema to database
-   npm run db:push
-   ```
+4. **Start the server:**
+```bash
+npm run dev
+```
 
-5. **Start the development server**
-   ```bash
-   npm run dev
-   ```
+## 🔧 Configuration
 
-## API Endpoints
+### Environment Variables
 
-### Authentication
+Create a `.env` file in the `backend/` directory:
 
-- `POST /api/auth/register` - Register a new user
-- `POST /api/auth/login` - Login user
-- `GET /api/auth/profile` - Get user profile
-- `POST /api/auth/oauth/initiate` - Initiate OAuth flow
-- `GET /api/auth/callback` - OAuth callback handler
-- `POST /api/auth/connect-bank` - Connect bank account
-- `POST /api/auth/refresh-token` - Refresh JWT token
+```env
+# Database Configuration
+DATABASE_URL="postgresql://postgres:2606@localhost:5432/Xpense Backend"
 
-### Connected Accounts
+# Server Configuration
+PORT=3001
+NODE_ENV=development
 
-- `GET /api/accounts` - Get all connected accounts
-- `GET /api/accounts/:accountId` - Get specific account
-- `POST /api/accounts/sync` - Sync all accounts
-- `POST /api/accounts/:accountId/sync` - Sync specific account
-- `DELETE /api/accounts/:accountId` - Disconnect account
-- `GET /api/accounts/sync-status` - Get sync status
-- `GET /api/accounts/balance-summary` - Get balance summary
+# JWT Configuration
+JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+JWT_EXPIRES_IN=7d
 
-### Transactions
+# Mastercard Open Banking API Configuration
+MASTERCARD_PARTNER_ID=2445584957219
+MASTERCARD_CLIENT_ID=5ad34a4227b6c585beaa8dc7e1d2d2f5
+MASTERCARD_CLIENT_SECRET=QFgTbpYOHHPBU8xfFZ5p
+MASTERCARD_API_BASE_URL=https://api.openbanking.mastercard.com.au
+MASTERCARD_AUTH_URL=https://api.openbanking.mastercard.com.au/oauth2/token
 
-- `GET /api/transactions` - Get all transactions (with filtering)
-- `GET /api/transactions/:transactionId` - Get specific transaction
-- `POST /api/transactions` - Create new transaction
-- `PUT /api/transactions/:transactionId` - Update transaction
-- `DELETE /api/transactions/:transactionId` - Delete transaction
-- `GET /api/transactions/stats` - Get transaction statistics
+# OAuth Redirect URLs
+OAUTH_REDIRECT_URI=http://localhost:3001/api/auth/callback
 
-### Webhooks
+# CORS Configuration
+FRONTEND_URL=http://localhost:3002
 
-- `POST /api/webhooks/mastercard` - Mastercard webhook endpoint
-- `GET /api/webhooks/events` - Get webhook events
-- `PATCH /api/webhooks/events/:eventId/processed` - Mark event as processed
+# Rate Limiting
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
 
-## Database Schema
+# Logging
+LOG_LEVEL=debug
+```
 
-### Users
-- Basic user information
-- Email and name
+## 🧪 Testing
 
-### Connected Accounts
-- Bank account details
-- OAuth tokens (encrypted)
-- Balance and sync information
+### Test Sandbox Integration
 
-### Transactions
-- Transaction details
-- Source tracking (manual vs imported)
-- Category and metadata
+Run the sandbox integration test to verify everything is working:
 
-### Webhook Events
-- Incoming webhook data
-- Processing status
+```bash
+node test-sandbox-integration.js
+```
 
-## Mastercard Open Banking Integration
+This will:
+- ✅ Check your environment configuration
+- ✅ Test sandbox accessibility
+- ✅ Verify available institutions
+- ✅ Test OAuth URL generation
+- ✅ Check backend server status
 
-### OAuth Flow
-1. User initiates OAuth flow
-2. Redirect to Mastercard authorization
-3. User consents and authorizes
-4. Exchange code for access token
-5. Connect accounts to user
+### Manual Testing
 
-### Data Synchronization
-- Automatic balance updates
-- Transaction import
-- Real-time webhook processing
-- Token refresh handling
+1. **Start both servers:**
+```bash
+# Terminal 1 - Backend
+cd backend && npm run dev
 
-### Security Features
+# Terminal 2 - Frontend  
+npm start
+```
+
+2. **Test the flow:**
+   - Open `http://localhost:3002`
+   - Register/login with Firebase
+   - Click "Connect Bank Account"
+   - Complete OAuth flow with sandbox banks
+   - View your connected accounts and transactions
+
+## 📊 Features
+
+### ✅ What's Working (Sandbox Data)
+
+- **Real OAuth Flow**: Complete authentication with Mastercard sandbox
+- **Bank Account Connection**: Connect to sandbox financial institutions
+- **Account Balances**: Real-time balance data from sandbox accounts
+- **Transaction Sync**: Historical and real-time transaction data
+- **CDR Compliance**: Full consent management and audit logging
+- **Token Management**: Automatic token refresh and encryption
+- **Webhook Support**: Real-time updates from sandbox banks
+
+### 🏦 Available Sandbox Banks
+
+The Mastercard sandbox provides access to:
+- **Commonwealth Bank** (CBA)
+- **Westpac**
+- **ANZ**
+- **NAB**
+- **Other Australian banks**
+
+### 📈 Data Types
+
+- **Accounts**: Checking, savings, credit accounts
+- **Balances**: Current, available, credit limits
+- **Transactions**: Debits, credits, transfers with categories
+- **Consent**: CDR-compliant consent management
+
+## 🔒 Security & Compliance
+
+### CDR Compliance Features
+
+- ✅ **Consent Management**: Max 12 months, granular scopes
+- ✅ **Data Protection**: Encrypted token storage
+- ✅ **Audit Logging**: Complete access trail
+- ✅ **User Rights**: Consent dashboard, data export
+- ✅ **Token Security**: OAuth 2.0 with PKCE
+
+### Security Measures
+
+- OAuth 2.0 with PKCE
 - Encrypted token storage
-- Webhook signature validation
 - Rate limiting
 - CORS protection
+- Input validation
+- Audit logging
 
-## Development
+## 🚫 No Mock Data
 
-### Available Scripts
+**Important**: This application no longer uses mock data. All data comes from the Mastercard sandbox environment, providing:
 
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run test         # Run tests
-npm run db:generate  # Generate Prisma client
-npm run db:push      # Push schema to database
-npm run db:migrate   # Run database migrations
-npm run db:studio    # Open Prisma Studio
-```
+- ✅ **Realistic Testing**: Actual bank-like data
+- ✅ **API Compliance**: Real API endpoints and responses  
+- ✅ **Production Parity**: Same structure as production
+- ✅ **OAuth Flow**: Complete authentication testing
+- ✅ **Webhook Testing**: Real notifications
 
-### Project Structure
+## 🔍 Troubleshooting
 
-```
-backend/
-├── src/
-│   ├── controllers/     # Request handlers
-│   ├── services/        # Business logic
-│   ├── middleware/      # Express middleware
-│   ├── routes/          # API routes
-│   ├── utils/           # Utility functions
-│   └── app.ts          # Main application
-├── prisma/
-│   └── schema.prisma   # Database schema
-├── package.json
-└── tsconfig.json
-```
+### Common Issues
 
-## Environment Variables
+1. **Sandbox Unavailable (503 errors)**
+   - Wait 15-60 minutes (temporary maintenance)
+   - Check different times (avoid maintenance windows)
+   - Verify credentials are correct
 
-| Variable | Description | Required |
-|----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | Yes |
-| `PORT` | Server port | No (default: 3001) |
-| `JWT_SECRET` | JWT signing secret | Yes |
-| `MASTERCARD_CLIENT_ID` | Mastercard API client ID | Yes |
-| `MASTERCARD_CLIENT_SECRET` | Mastercard API client secret | Yes |
-| `MASTERCARD_API_BASE_URL` | Mastercard API base URL | No |
-| `OAUTH_REDIRECT_URI` | OAuth callback URL | Yes |
-| `FRONTEND_URL` | Frontend URL for CORS | Yes |
+2. **Authentication Errors**
+   - Check environment variables
+   - Verify sandbox account is active
+   - Ensure correct environment (sandbox vs production)
 
-## Security Considerations
+3. **Database Issues**
+   - Run `npm run db:push` to create tables
+   - Check PostgreSQL connection
+   - Verify DATABASE_URL format
 
-- All sensitive data is encrypted before storage
-- JWT tokens have expiration times
-- Rate limiting prevents abuse
-- CORS is configured for security
-- Input validation on all endpoints
-- Webhook signature validation
-
-## Error Handling
-
-The API uses a centralized error handling system:
-- Consistent error response format
-- Proper HTTP status codes
-- Detailed logging for debugging
-- User-friendly error messages
-
-## Logging
-
-The application uses a custom logger with:
-- Different log levels (info, warn, error, debug)
-- Request/response logging
-- API call logging
-- Error tracking
-
-## Testing
+### Health Checks
 
 ```bash
-# Run all tests
-npm test
+# Test sandbox connectivity
+node test-sandbox-integration.js
 
-# Run tests in watch mode
-npm run test:watch
+# Check database
+npm run db:push
 
-# Run tests with coverage
-npm run test:coverage
+# Test backend server
+curl http://localhost:3001/api/health
 ```
 
-## Deployment
+## 📚 API Documentation
 
-1. **Build the application**
-   ```bash
-   npm run build
-   ```
+### Key Endpoints
 
-2. **Set production environment variables**
+```http
+# Authentication
+POST   /api/auth/consent/start     # Start OAuth flow
+GET    /api/auth/callback          # OAuth callback
+POST   /api/auth/refresh           # Refresh tokens
 
-3. **Start the production server**
-   ```bash
-   npm start
-   ```
+# Consent Management  
+GET    /api/consents               # List user consents
+GET    /api/consents/:id           # Get consent details
+DELETE /api/consents/:id           # Revoke consent
 
-## Contributing
+# Account Management
+GET    /api/accounts               # Get connected accounts
+GET    /api/accounts/:id/balances  # Get account balances
+GET    /api/accounts/:id/transactions # Get transactions
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+# Sync Operations
+POST   /api/sync/initial/:consentId    # Initial sync
+POST   /api/sync/incremental/:consentId # Incremental sync
+POST   /api/sync/account/:accountId    # Sync specific account
+```
 
-## License
+## 🚀 Deployment
 
-MIT License - see LICENSE file for details
+### Production Checklist
+
+- [ ] Update environment variables for production
+- [ ] Set up production database
+- [ ] Configure CORS for production domain
+- [ ] Set up monitoring and logging
+- [ ] Configure webhook endpoints
+- [ ] Test with production Mastercard credentials
+
+### Environment Variables for Production
+
+```env
+NODE_ENV=production
+MASTERCARD_API_BASE_URL=https://api.mastercard.com/open-banking
+MASTERCARD_AUTH_URL=https://api.mastercard.com/oauth2/token
+# Use production Mastercard credentials
+```
+
+## 📞 Support
+
+- **Mastercard API Docs**: [Open Banking Documentation](https://developer.mastercard.com/open-banking)
+- **CDR Compliance**: [Consumer Data Right](https://www.accc.gov.au/focus-areas/consumer-data-right-cdr-0)
+- **Sandbox Status**: Check Mastercard developer portal
+
+---
+
+**🎉 Your application is now fully integrated with Mastercard Open Banking sandbox!**

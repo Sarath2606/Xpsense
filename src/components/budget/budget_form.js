@@ -62,9 +62,9 @@ const BudgetForm = ({
       mode: 'goal',
       id: editingGoal ? editingGoal.id : undefined,
       name: goalName,
-      amount: parseFloat(goalAmount),
+      amount: parseFloat(goalAmount) || 0,
       deadline: goalDeadline,
-      savingsPercent: savingsPercent === '' ? 0 : parseFloat(savingsPercent),
+      savingsPercent: savingsPercent === '' ? 0 : parseFloat(savingsPercent) || 0,
       autoAllocate,
     });
   };

@@ -55,12 +55,12 @@ export const useBudget = (transactions = []) => {
 
   // Goals CRUD
   const addGoal = ({ name, amount, deadline, savingsPercent = 0, autoAllocate = false }) => {
-    const parsedAmount = parseFloat(amount);
+    const parsedAmount = parseFloat(amount) || 0;
     const newGoal = {
       id: Date.now(),
-      name,
+      name: name || 'New Goal',
       amount: parsedAmount,
-      deadline, // YYYY-MM-DD
+      deadline: deadline || new Date().toISOString().split('T')[0], // YYYY-MM-DD
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       saved: 0,
@@ -73,9 +73,10 @@ export const useBudget = (transactions = []) => {
   };
 
   const addSavingsToGoal = (goalId, amount) => {
+    const parsedAmount = parseFloat(amount) || 0;
     setGoals(prev => prev.map(goal => {
       if (goal.id === goalId) {
-        const newSaved = Math.min(goal.amount, goal.saved + parseFloat(amount));
+        const newSaved = Math.min(goal.amount, (goal.saved || 0) + parsedAmount);
         return { ...goal, saved: newSaved, updatedAt: new Date().toISOString() };
       }
       return goal;
@@ -206,13 +207,15 @@ export const useBudget = (transactions = []) => {
   const getGoals = () => goals;
 
   const getGoalProgress = (goal) => {
+    if (!goal) return { saved: 0, remaining: 0, percent: 0, totalDays: 0, daysLeft: 0, requiredPerDay: 0, requiredPerWeek: 0, neededPerDayNow: 0 };
+    
     const todayISO = new Date().toISOString().split('T')[0];
-    const totalDays = daysBetween(goal.createdAt.split('T')[0], goal.deadline);
-    const daysLeft = daysBetween(todayISO, goal.deadline);
+    const totalDays = daysBetween(goal.createdAt?.split('T')[0] || todayISO, goal.deadline || todayISO);
+    const daysLeft = daysBetween(todayISO, goal.deadline || todayISO);
     const saved = goal.saved || 0;
-    const remaining = Math.max(0, goal.amount - saved);
-    const percent = goal.amount > 0 ? Math.min(100, (saved / goal.amount) * 100) : 0;
-    const requiredPerDay = totalDays > 0 ? goal.amount / totalDays : goal.amount;
+    const remaining = Math.max(0, (goal.amount || 0) - saved);
+    const percent = (goal.amount || 0) > 0 ? Math.min(100, (saved / goal.amount) * 100) : 0;
+    const requiredPerDay = totalDays > 0 ? (goal.amount || 0) / totalDays : (goal.amount || 0);
     const requiredPerWeek = requiredPerDay * 7;
     const neededPerDayNow = daysLeft > 0 ? remaining / daysLeft : remaining;
 
@@ -229,9 +232,11 @@ export const useBudget = (transactions = []) => {
   };
 
   const getEstimatedAllocation = (goal) => {
+    if (!goal) return 0;
+    
     const { startDate, endDate } = getCurrentPeriodDates(budgetPeriod);
     const periodIncome = getPeriodIncome(startDate, endDate);
-    const remaining = Math.max(0, goal.amount - (goal.saved || 0));
+    const remaining = Math.max(0, (goal.amount || 0) - (goal.saved || 0));
     const estimate = (periodIncome * ((goal.savingsPercent || 0) / 100));
     return Math.max(0, Math.min(remaining, estimate));
   };
@@ -244,7 +249,7 @@ export const useBudget = (transactions = []) => {
     setGoals(prev => prev.map(g => {
       if (!g.autoAllocate || (g.savingsPercent || 0) <= 0) return g;
       if (g.lastAllocatedPeriod === startDate) return g; // already allocated this period
-      const remaining = Math.max(0, g.amount - (g.saved || 0));
+      const remaining = Math.max(0, (g.amount || 0) - (g.saved || 0));
       if (remaining <= 0) return g;
       const allocation = Math.max(0, Math.min(remaining, periodIncome * ((g.savingsPercent || 0) / 100)));
       if (allocation <= 0) return g;

@@ -1,22 +1,60 @@
 // src/App.js
 import React, { useState } from 'react';
-import { BackendAuthProvider, useBackendAuth } from './hooks/use_backend_auth';
-import BackendLoginScreen from './components/auth/backend_login_screen';
-import BackendRegisterScreen from './components/auth/backend_register_screen';
+import { useAuth } from './hooks/use_auth_hook';
+import { useBackendTransactions } from './hooks/use_backend_transactions';
+import AuthModal from './components/auth/auth_modal';
 import HomeView from './components/views/home_view';
 import TransactionsView from './components/views/transactions_view';
 import StatsView from './components/views/stats_view';
 import AdvisorView from './components/views/advisor_view';
-import BottomNavigation from './components/common/bottom_navigation';
-import HeaderComponent from './components/common/header_component';
 import ConnectBankModal from './components/accounts/connect_bank_modal';
+import { useBudget } from './hooks/use_budget_hook';
 
 // Main app content component
 const AppContent = () => {
-  const { user, loading, logout, isAuthenticated } = useBackendAuth();
+  const { user, loading, signOutUser, isAuthenticated, signInWithGoogle, signInWithEmail, signUpWithEmail, resetPassword, error, clearError } = useAuth();
   const [currentView, setCurrentView] = useState('home');
   const [showConnectBankModal, setShowConnectBankModal] = useState(false);
-  const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+
+  // Use real transaction data
+  const {
+    transactions,
+    loading: transactionsLoading,
+    error: transactionsError,
+    stats,
+    createTransaction,
+    updateTransaction,
+    deleteTransaction,
+    filterTransactions
+  } = useBackendTransactions();
+
+  // Budgets & goals hook (uses transactions for income-based allocations)
+  const budgetHook = useBudget(transactions);
+
+  // Filter transactions based on search and category
+  const filteredTransactions = filterTransactions({
+    search: searchTerm,
+    type: filterCategory !== 'all' ? filterCategory : undefined
+  });
+
+  // Handle transaction actions
+  const handleEditTransaction = (transactionId, updates) => {
+    updateTransaction(transactionId, updates);
+  };
+
+  const handleDeleteTransaction = (transactionId) => {
+    deleteTransaction(transactionId);
+  };
+
+  // Close auth modal when user becomes authenticated
+  React.useEffect(() => {
+    if (isAuthenticated && showAuthModal) {
+      setShowAuthModal(false);
+    }
+  }, [isAuthenticated, showAuthModal]);
 
   // Show loading screen while checking authentication
   if (loading) {
@@ -30,15 +68,21 @@ const AppContent = () => {
     );
   }
 
-  // Show authentication screens if not authenticated
+  // Show authentication modal if not authenticated
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50">
-        {authMode === 'login' ? (
-          <BackendLoginScreen onSwitchToRegister={() => setAuthMode('register')} />
-        ) : (
-          <BackendRegisterScreen onSwitchToLogin={() => setAuthMode('login')} />
-        )}
+        <AuthModal
+          isOpen={true}
+          onClose={() => {}} // Prevent closing - user must authenticate
+          onGoogleSignIn={signInWithGoogle}
+          onEmailSignIn={signInWithEmail}
+          onEmailSignUp={signUpWithEmail}
+          onResetPassword={resetPassword}
+          loading={loading}
+          error={error}
+          isAuthenticated={isAuthenticated}
+        />
       </div>
     );
   }
@@ -47,36 +91,143 @@ const AppContent = () => {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'home':
-        return <HomeView onConnectBank={() => setShowConnectBankModal(true)} />;
+        return (
+          <HomeView 
+            onConnectBank={() => setShowConnectBankModal(true)}
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            setShowAddTransaction={() => {}}
+            transactions={filteredTransactions}
+            categories={[
+              { id: 1, name: 'Salary', type: 'income', icon: '💰', color: 'bg-green-100' },
+              { id: 2, name: 'Food', type: 'expense', icon: '🍔', color: 'bg-red-100' },
+              { id: 3, name: 'Transport', type: 'expense', icon: '🚗', color: 'bg-blue-100' },
+              { id: 4, name: 'Entertainment', type: 'expense', icon: '🎬', color: 'bg-purple-100' },
+              { id: 5, name: 'Shopping', type: 'expense', icon: '🛍️', color: 'bg-pink-100' },
+              { id: 6, name: 'Bills', type: 'expense', icon: '⚡', color: 'bg-yellow-100' },
+              { id: 7, name: 'Health', type: 'expense', icon: '🏥', color: 'bg-orange-100' },
+              { id: 8, name: 'Investment', type: 'income', icon: '📈', color: 'bg-green-100' }
+            ]}
+            userName={user?.displayName || user?.email}
+            userPhotoURL={user?.photoURL}
+            onSignOut={signOutUser}
+            onSignIn={() => setShowAuthModal(true)}
+            authLoading={loading}
+            authError={error}
+            isAuthenticated={isAuthenticated}
+            user={user}
+          />
+        );
       case 'transactions':
-        return <TransactionsView />;
+        return (
+          <TransactionsView 
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            setShowAddTransaction={() => {}}
+            userName={user?.displayName || user?.email}
+            userPhotoURL={user?.photoURL}
+            onSignOut={signOutUser}
+            onSignIn={() => setShowAuthModal(true)}
+            authLoading={loading}
+            authError={error}
+            isAuthenticated={isAuthenticated}
+            user={user}
+          />
+        );
       case 'stats':
-        return <StatsView />;
+        return (
+          <StatsView 
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            setShowAddTransaction={() => {}}
+            transactions={filteredTransactions}
+            categories={[
+              { id: 1, name: 'Salary', type: 'income', icon: '💰', color: 'bg-green-100' },
+              { id: 2, name: 'Food', type: 'expense', icon: '🍔', color: 'bg-red-100' },
+              { id: 3, name: 'Transport', type: 'expense', icon: '🚗', color: 'bg-blue-100' },
+              { id: 4, name: 'Entertainment', type: 'expense', icon: '🎬', color: 'bg-purple-100' },
+              { id: 5, name: 'Shopping', type: 'expense', icon: '🛍️', color: 'bg-pink-100' },
+              { id: 6, name: 'Bills', type: 'expense', icon: '⚡', color: 'bg-yellow-100' },
+              { id: 7, name: 'Health', type: 'expense', icon: '🏥', color: 'bg-orange-100' },
+              { id: 8, name: 'Investment', type: 'income', icon: '📈', color: 'bg-green-100' }
+            ]}
+            metrics={stats}
+            budgetHook={budgetHook}
+            userName={user?.displayName || user?.email}
+            userPhotoURL={user?.photoURL}
+            onSignOut={signOutUser}
+            onSignIn={() => setShowAuthModal(true)}
+            authLoading={loading}
+            authError={error}
+            isAuthenticated={isAuthenticated}
+            user={user}
+          />
+        );
       case 'advisor':
-        return <AdvisorView />;
+        return (
+          <AdvisorView 
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            setShowAddTransaction={() => {}}
+            userName={user?.displayName || user?.email}
+            userPhotoURL={user?.photoURL}
+            onSignOut={signOutUser}
+            onSignIn={() => setShowAuthModal(true)}
+            authLoading={loading}
+            authError={error}
+            isAuthenticated={isAuthenticated}
+            user={user}
+          />
+        );
       default:
-        return <HomeView onConnectBank={() => setShowConnectBankModal(true)} />;
+        return (
+          <HomeView 
+            onConnectBank={() => setShowConnectBankModal(true)}
+            currentView={currentView}
+            setCurrentView={setCurrentView}
+            setShowAddTransaction={() => {}}
+            transactions={filteredTransactions}
+            categories={[
+              { id: 1, name: 'Salary', type: 'income', icon: '💰', color: 'bg-green-100' },
+              { id: 2, name: 'Food', type: 'expense', icon: '🍔', color: 'bg-red-100' },
+              { id: 3, name: 'Transport', type: 'expense', icon: '🚗', color: 'bg-blue-100' },
+              { id: 4, name: 'Entertainment', type: 'expense', icon: '🎬', color: 'bg-purple-100' },
+              { id: 5, name: 'Shopping', type: 'expense', icon: '🛍️', color: 'bg-pink-100' },
+              { id: 6, name: 'Bills', type: 'expense', icon: '⚡', color: 'bg-yellow-100' },
+              { id: 7, name: 'Health', type: 'expense', icon: '🏥', color: 'bg-orange-100' },
+              { id: 8, name: 'Investment', type: 'income', icon: '📈', color: 'bg-green-100' }
+            ]}
+            userName={user?.displayName || user?.email}
+            userPhotoURL={user?.photoURL}
+            onSignOut={signOutUser}
+            onSignIn={() => setShowAuthModal(true)}
+            authLoading={loading}
+            authError={error}
+            isAuthenticated={isAuthenticated}
+            user={user}
+          />
+        );
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <HeaderComponent 
-        user={user} 
-        onLogout={logout}
-        onConnectBank={() => setShowConnectBankModal(true)}
-      />
-      
       {/* Main Content */}
-      <main className="pb-20">
+      <main>
         {renderCurrentView()}
       </main>
       
-      {/* Bottom Navigation */}
-      <BottomNavigation 
-        currentView={currentView} 
-        onViewChange={setCurrentView} 
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        onGoogleSignIn={signInWithGoogle}
+        onEmailSignIn={signInWithEmail}
+        onEmailSignUp={signUpWithEmail}
+        onResetPassword={resetPassword}
+        loading={loading}
+        error={error}
+        isAuthenticated={isAuthenticated}
       />
       
       {/* Connect Bank Modal */}
@@ -92,13 +243,9 @@ const AppContent = () => {
   );
 };
 
-// Main App component with providers
+// Main App component
 const App = () => {
-  return (
-    <BackendAuthProvider>
-      <AppContent />
-    </BackendAuthProvider>
-  );
+  return <AppContent />;
 };
 
 export default App;

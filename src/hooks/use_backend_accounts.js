@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiService from '../config/api';
+import { debounce } from '../utils/debounce';
 
 export const useBackendAccounts = () => {
   const [accounts, setAccounts] = useState([]);
@@ -137,22 +138,26 @@ export const useBackendAccounts = () => {
     );
   }, []);
 
-  // Load initial data
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        await Promise.all([
-          fetchAccounts(),
-          fetchSyncStatus(),
-          fetchBalanceSummary()
-        ]);
-      } catch (error) {
-        console.error('Failed to load initial account data:', error);
-      }
-    };
-
-    loadInitialData();
+  // Load initial data - only when explicitly requested
+  const loadInitialData = useCallback(async () => {
+    try {
+      console.log('Loading initial account data...');
+      await Promise.all([
+        fetchAccounts(),
+        fetchSyncStatus(),
+        fetchBalanceSummary()
+      ]);
+      console.log('Initial account data loaded successfully');
+    } catch (error) {
+      console.error('Failed to load initial account data:', error);
+    }
   }, [fetchAccounts, fetchSyncStatus, fetchBalanceSummary]);
+
+  // Auto-load data when the hook is first used
+  useEffect(() => {
+    console.log('useBackendAccounts: Auto-loading data...');
+    loadInitialData();
+  }, [loadInitialData]);
 
   return {
     // State
@@ -176,6 +181,6 @@ export const useBackendAccounts = () => {
     // Computed values
     totalAccounts: accounts.length,
     activeAccounts: accounts.filter(account => account.isActive),
-    totalBalance: balanceSummary?.balanceSummary?.USD || 0,
+    totalBalance: balanceSummary?.totalBalance || 0,
   };
 };

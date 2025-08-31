@@ -3,15 +3,15 @@ import React from 'react';
 import TransactionCard from './transaction_card';
 
 const TransactionList = ({ 
-  transactions, 
-  categories, 
+  transactions = [], 
+  categories = [], 
   onEditTransaction, 
   onDeleteTransaction,
-  showActions = true,
+  showActions = false, // Set to false by default for real-time transactions
   variant = 'detailed',
   emptyMessage = 'No transactions found'
 }) => {
-  if (transactions.length === 0) {
+  if (!transactions || transactions.length === 0) {
     return (
       <div className="text-center py-8">
         <div className="mb-4">
@@ -26,7 +26,7 @@ const TransactionList = ({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 w-full box-border">
       {transactions.map((transaction) => (
         <TransactionCard
           key={transaction.id}

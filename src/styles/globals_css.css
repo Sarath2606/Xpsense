@@ -52,35 +52,64 @@ body {
     padding: 0.25rem;
   }
   
-  /* Ensure proper mobile viewport */
-  .max-w-sm {
-    max-width: 100vw;
-    margin: 0 auto;
-  }
-  
   /* Better touch targets */
   button, input, select {
     min-height: 44px;
   }
 }
 
-/* Custom Scrollbar */
+/* Hide Scrollbars - Comprehensive */
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
-  border-radius: 10px;
+  display: none !important;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 10px;
+  display: none !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+::-webkit-scrollbar-corner {
+  display: none !important;
+}
+
+/* Hide scrollbars for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+/* Additional scrollbar hiding for specific elements */
+html, body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Hide scrollbars for all scrollable containers */
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-y-scroll::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.overflow-y-auto,
+.overflow-y-scroll,
+.overflow-auto {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 /* Animation Classes */
@@ -150,4 +179,90 @@ select:focus {
     background-color: #1f2937;
     color: #f3f4f6;
   }
+}
+
+/* Missing CSS Classes for Transaction Components */
+.card-smooth {
+  transition: all 0.2s ease-in-out;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.icon-smooth {
+  transition: all 0.2s ease-in-out;
+}
+
+.input-smooth {
+  transition: all 0.2s ease-in-out;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  width: 100%;
+}
+
+.input-smooth:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.btn-smooth {
+  transition: all 0.2s ease-in-out;
+  border: none;
+  border-radius: 0.5rem;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scale-active {
+  transition: all 0.2s ease-in-out;
+}
+
+.scale-active:active {
+  transform: scale(0.95);
+}
+
+/* Ensure consistent width for transaction cards */
+.transaction-card {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+
+
+/* Ensure proper container width */
+.max-w-sm {
+  max-width: 24rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure consistent padding and margins */
+.px-6 {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+  box-sizing: border-box;
+}
+
+/* Ensure all elements use border-box */
+* {
+  box-sizing: border-box;
+}
+
+/* Fix for flex containers to prevent width shrinking */
+.flex {
+  box-sizing: border-box;
+}
+
+/* Ensure transaction components don't overflow */
+.transaction-card,
+.transaction-list {
+  box-sizing: border-box;
+  max-width: 100%;
 }

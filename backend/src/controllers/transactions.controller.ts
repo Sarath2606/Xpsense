@@ -10,7 +10,7 @@ export class TransactionsController {
   /**
    * Get all transactions for a user
    */
-  getTransactions = asyncHandler(async (req: AuthRequest, res: Response) => {
+  getAllTransactions = asyncHandler(async (req: AuthRequest, res: Response) => {
     if (!req.user) {
       return res.status(401).json({
         error: 'Unauthorized',
@@ -18,52 +18,13 @@ export class TransactionsController {
       });
     }
 
-    const { 
-      page = '1', 
-      limit = '50', 
-      category, 
-      type, 
-      fromDate, 
-      toDate,
-      accountId 
-    } = req.query;
-
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
-
     try {
-      // Build where clause
-      const where: any = { userId: req.user.id };
-      
-      if (category) where.category = category;
-      if (type) where.transactionType = type;
-      if (accountId) where.connectedAccountId = accountId;
-      
-      if (fromDate || toDate) {
-        where.date = {};
-        if (fromDate) where.date.gte = new Date(fromDate as string);
-        if (toDate) where.date.lte = new Date(toDate as string);
-      }
 
-      // Get transactions with pagination
-      const [transactions, total] = await Promise.all([
-        prisma.transaction.findMany({
-          where,
-          include: {
-            connectedAccount: {
-              select: {
-                accountName: true,
-                bankName: true
-              }
-            }
-          },
-          orderBy: { date: 'desc' },
-          skip,
-          take: limitNum
-        }),
-        prisma.transaction.count({ where })
-      ]);
+      const transactions = await prisma.transaction.findMany({
+        where: { userId: req.user.id },
+        orderBy: { date: 'desc' },
+        take: 50 // Limit to recent transactions
+      });
 
       logger.info(`Retrieved ${transactions.length} transactions for user ${req.user.id}`);
 
@@ -72,13 +33,7 @@ export class TransactionsController {
           ...transaction,
           amount: Number(transaction.amount),
           date: transaction.date.toISOString()
-        })),
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages: Math.ceil(total / limitNum)
-        }
+        }))
       });
     } catch (error) {
       logger.error(`Failed to get transactions for user ${req.user.id}:`, error);
@@ -171,7 +126,7 @@ export class TransactionsController {
           where: {
             id: connectedAccountId,
             userId: req.user.id,
-            isActive: true
+            status: 'ACTIVE'
           }
         });
 

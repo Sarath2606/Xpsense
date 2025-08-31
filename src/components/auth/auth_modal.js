@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Chrome, Eye, EyeOff, X, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 
-const AuthModal = ({ isOpen, onClose, onGoogleSignIn, onEmailSignIn, onEmailSignUp, onResetPassword, loading, error }) => {
+const AuthModal = ({ isOpen, onClose, onGoogleSignIn, onEmailSignIn, onEmailSignUp, onResetPassword, loading, error, isAuthenticated }) => {
   const [authMode, setAuthMode] = useState('login'); // 'login', 'signup', 'reset'
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -11,12 +11,15 @@ const AuthModal = ({ isOpen, onClose, onGoogleSignIn, onEmailSignIn, onEmailSign
   const [emailLoading, setEmailLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [emailError, setEmailError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
 
   const handleGoogleSignIn = async () => {
     try {
       setGoogleLoading(true);
       setEmailError(null);
+      setSuccessMessage(null);
       await onGoogleSignIn();
+      setSuccessMessage('Successfully signed in with Google!');
     } catch (error) {
       console.error('Google sign-in error:', error);
       setEmailError(error.message || 'Google sign-in failed');
@@ -29,15 +32,18 @@ const AuthModal = ({ isOpen, onClose, onGoogleSignIn, onEmailSignIn, onEmailSign
     e.preventDefault();
     setEmailLoading(true);
     setEmailError(null);
+    setSuccessMessage(null);
     
     try {
       if (authMode === 'login') {
         await onEmailSignIn(email, password);
+        setSuccessMessage('Successfully signed in!');
       } else if (authMode === 'signup') {
         await onEmailSignUp(email, password, displayName);
+        setSuccessMessage('Account created successfully!');
       } else if (authMode === 'reset') {
         await onResetPassword(email);
-        setEmailError("Password reset email sent! Check your inbox.");
+        setSuccessMessage("Password reset email sent! Check your inbox.");
       }
     } catch (error) {
       setEmailError(error.message || "Authentication failed");
@@ -49,16 +55,19 @@ const AuthModal = ({ isOpen, onClose, onGoogleSignIn, onEmailSignIn, onEmailSign
   const switchToSignUp = () => {
     setAuthMode('signup');
     setEmailError(null);
+    setSuccessMessage(null);
   };
 
   const switchToLogin = () => {
     setAuthMode('login');
     setEmailError(null);
+    setSuccessMessage(null);
   };
 
   const switchToReset = () => {
     setAuthMode('reset');
     setEmailError(null);
+    setSuccessMessage(null);
   };
 
   const getTitle = () => {
@@ -97,12 +106,14 @@ const AuthModal = ({ isOpen, onClose, onGoogleSignIn, onEmailSignIn, onEmailSign
                   )}
                   <h2 className="text-2xl font-bold text-gray-900">{getTitle()}</h2>
                 </div>
-                <button 
-                  onClick={onClose}
-                  className="scale-active p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                {isAuthenticated && (
+                  <button 
+                    onClick={onClose}
+                    className="scale-active p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-all duration-200"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
               </div>
 
               <div className="space-y-6">
@@ -254,6 +265,13 @@ const AuthModal = ({ isOpen, onClose, onGoogleSignIn, onEmailSignIn, onEmailSign
                   )}
                 </div>
 
+                {/* Success Messages */}
+                {successMessage && (
+                  <div className="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <p className="text-green-600 text-sm">{successMessage}</p>
+                  </div>
+                )}
+                
                 {/* Error Messages */}
                 {emailError && (
                   <div className="bg-red-50 border border-red-200 rounded-xl p-4">

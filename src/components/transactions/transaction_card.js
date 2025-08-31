@@ -1,90 +1,42 @@
-// src/components/transactions/TransactionCard.js
-import React, { useState } from 'react';
-import { Edit, Trash2 } from 'lucide-react';
+// src/components/transactions/TransactionCard.js - Fixed onViewChange error
+import React from 'react';
 import CategoryIcon from '../ui/category_icon';
 import { getCategoryInfo } from '../../utils/calculations_js';
 
 const TransactionCard = ({ 
   transaction, 
-  categories, 
+  categories = [], 
   onEdit, 
   onDelete, 
-  showActions = true,
+  showActions = false, // Set to false by default for real-time transactions
   variant = 'detailed' // 'simple' or 'detailed'
 }) => {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editData, setEditData] = useState({
-    name: transaction.name || transaction.description || '',
-    amount: transaction.amount,
-    categoryId: transaction.categoryId,
-    date: transaction.date,
-    description: transaction.description || ''
-  });
+  // Early return if transaction is not provided
+  if (!transaction) {
+    return null;
+  }
 
-  const category = getCategoryInfo(categories, transaction.categoryId);
+  const category = getCategoryInfo(categories, transaction.category);
   const formattedDate = new Date(transaction.date).toLocaleDateString();
   const isIncome = transaction.amount > 0;
   const amountColor = isIncome ? 'text-green-600' : 'text-red-600';
 
-  const getCategoryName = (categoryId) => {
-    const category = categories.find(cat => cat.id === categoryId);
-    return category ? category.name : 'Unknown';
-  };
-
-  const handleEdit = () => {
-    setIsEditing(true);
-    setEditData({
-      name: transaction.name || transaction.description || '',
-      amount: transaction.amount,
-      categoryId: transaction.categoryId,
-      date: transaction.date,
-      description: transaction.description || ''
-    });
-  };
-
-  const handleSave = () => {
-    if (onEdit) {
-      onEdit({
-        ...transaction,
-        ...editData
-      });
-    }
-    setIsEditing(false);
-  };
-
-  const handleCancel = () => {
-    setIsEditing(false);
-    setEditData({
-      name: transaction.name || transaction.description || '',
-      amount: transaction.amount,
-      categoryId: transaction.categoryId,
-      date: transaction.date,
-      description: transaction.description || ''
-    });
-  };
-
-  const handleDelete = () => {
-    if (onDelete) {
-      onDelete(transaction.id);
-    }
-  };
-
   if (variant === 'simple') {
     return (
-      <div className="flex items-center justify-between py-3">
-        <div className="flex items-center space-x-4">
+      <div className="flex items-center justify-between py-2 w-full box-border">
+        <div className="flex items-center space-x-3">
           <CategoryIcon 
-            categoryId={transaction.categoryId} 
+            categoryId={transaction.category} 
             categories={categories} 
-            size="lg" 
+            size="sm" 
           />
           <div>
-            <h4 className="font-semibold text-gray-900">{transaction.name || transaction.description}</h4>
-            <p className="text-gray-500 text-sm">{formattedDate}</p>
+            <h4 className="font-medium text-gray-900 text-sm">{transaction.description}</h4>
+            <p className="text-gray-500 text-xs">{formattedDate}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className={`font-bold ${amountColor}`}>
+          <p className={`font-semibold text-sm ${amountColor}`}>
             {isIncome ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
           </p>
         </div>
@@ -93,90 +45,37 @@ const TransactionCard = ({
   }
 
   return (
-    <div className={`card-smooth bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 ${
-      isEditing ? 'ring-2 ring-blue-500' : ''
-    }`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="icon-smooth">
+    <div className="card-smooth bg-white rounded-lg p-3 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200 w-full box-border">
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-3 flex-1">
+          <div className="icon-smooth mt-0.5">
             <CategoryIcon 
-              categoryId={transaction.categoryId} 
+              categoryId={transaction.category} 
               categories={categories} 
-              size="md" 
+              size="sm" 
             />
           </div>
           
-          <div className="flex-1">
-            <h3 className="font-medium text-gray-900">{transaction.name || transaction.description}</h3>
-            <p className="text-sm text-gray-500">
-              {new Date(transaction.date).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        
-        <div className="text-right">
-          <p className={`font-semibold text-lg ${
-            transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
-            {transaction.amount >= 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
-          </p>
-          <p className="text-xs text-gray-500">
-            {getCategoryName(transaction.categoryId)}
-          </p>
-        </div>
-      </div>
-      
-      {isEditing && (
-        <div className="mt-4 pt-4 border-t border-gray-100">
-          <div className="space-y-3">
-            <input
-              type="text"
-              value={editData.name}
-              onChange={(e) => setEditData({...editData, name: e.target.value})}
-              className="input-smooth w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Transaction name"
-            />
-            <input
-              type="number"
-              value={editData.amount}
-              onChange={(e) => setEditData({...editData, amount: parseFloat(e.target.value)})}
-              className="input-smooth w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Amount"
-            />
-            <div className="grid grid-cols-2 gap-3">
-              <button 
-                onClick={handleSave}
-                className="btn-smooth bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-              >
-                Save
-              </button>
-              <button 
-                onClick={handleCancel}
-                className="btn-smooth bg-gray-200 hover:bg-gray-300 text-gray-800 py-2 px-4 rounded-lg text-sm font-medium transition-colors"
-              >
-                Cancel
-              </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-start">
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-900 text-sm truncate">
+                  {transaction.description}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {formattedDate}
+                </p>
+              </div>
+              
+              <div className="text-right ml-2 flex-shrink-0">
+                <p className={`font-semibold text-sm ${amountColor}`}>
+                  {isIncome ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
+                </p>
+              </div>
             </div>
           </div>
         </div>
-      )}
-      
-      {!isEditing && showActions && (
-        <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end space-x-2">
-          <button 
-            onClick={handleEdit}
-            className="scale-active p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-all duration-200"
-          >
-            <Edit className="w-4 h-4" />
-          </button>
-          <button 
-            onClick={handleDelete}
-            className="scale-active p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all duration-200"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

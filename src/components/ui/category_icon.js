@@ -3,6 +3,7 @@ import React from 'react';
 import { getCategoryInfo } from '../../utils/calculations_js';
 
 const CategoryIcon = ({ categoryId, categories, size = 'md' }) => {
+  // Handle both string and number category IDs
   const category = getCategoryInfo(categories, categoryId);
   
   const sizeClasses = {

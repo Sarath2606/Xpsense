@@ -1,95 +1,74 @@
 // src/components/ui/BalanceCard.js
-import React, { useState, useEffect } from 'react';
-import { Wallet, TrendingUp, TrendingDown, Eye, EyeOff } from 'lucide-react';
+import React from 'react';
+import { Plus, CreditCard, Sparkles } from 'lucide-react';
 
-const BalanceCard = ({ balance, income, expenses }) => {
-  const [currentMonth, setCurrentMonth] = useState(0);
-  const [showBalance, setShowBalance] = useState(false);
-  
-  // Only current and previous month
-  const months = ['Aug 2025', 'Jul 2025'];
-
-  // Simulate different income/expense data for each month
-  const getMonthlyData = (monthIndex) => {
-    const baseIncome = income;
-    const baseExpenses = Math.abs(expenses);
-    
-    // Add some variation to make it realistic
-    const variation = 0.1; // 10% variation
-    const incomeVariation = baseIncome * (1 + (Math.random() - 0.5) * variation);
-    const expenseVariation = baseExpenses * (1 + (Math.random() - 0.5) * variation);
-    
-    return {
-      income: incomeVariation,
-      expenses: expenseVariation
-    };
-  };
-
-  // Change month every 3 seconds (only between current and previous month)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentMonth((prev) => (prev + 1) % months.length);
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const currentMonthData = getMonthlyData(currentMonth);
-  const expenseRatio = income + expenses > 0 ? (expenses / (income + expenses)) * 100 : 0;
-
-  // Generate hidden balance with X's
-  const getHiddenBalance = () => {
-    const balanceStr = balance.toFixed(2);
-    return balanceStr.replace(/\d/g, 'X');
-  };
-
-  const handleBalanceClick = () => {
-    setShowBalance(!showBalance);
+const BalanceCard = ({ onAddCard }) => {
+  const handleAddCard = () => {
+    if (onAddCard) {
+      onAddCard();
+    }
   };
 
   return (
-    <div className="card-smooth bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-6 text-white shadow-lg">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">Total Balance</h2>
-        <div className="icon-smooth">
-          <Wallet className="w-6 h-6" />
-        </div>
-      </div>
-      
-      <div className="mb-4">
-        <button 
-          onClick={handleBalanceClick}
-          className="flex items-center space-x-2 hover:opacity-80 transition-opacity cursor-pointer"
-        >
-          <p className="text-3xl font-bold">
-            {showBalance ? `$${balance.toFixed(2)}` : `$${getHiddenBalance()}`}
-          </p>
-          {showBalance ? (
-            <EyeOff className="w-5 h-5 text-gray-300" />
-          ) : (
-            <Eye className="w-5 h-5 text-gray-300" />
-          )}
-        </button>
-        <p className="text-gray-300 text-sm">Available funds</p>
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white bg-opacity-10 rounded-lg p-3 transition-all duration-500">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-300">Income</p>
-            <TrendingUp className="w-4 h-4 text-green-400" />
+    <div className="relative overflow-hidden">
+      {/* Glassy Card Container */}
+      <div className="relative h-48 w-full rounded-2xl bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-xl border border-white/20 shadow-2xl hover:shadow-3xl transition-all duration-500 group">
+        
+        {/* Background Gradient Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-500/20 via-purple-500/20 to-pink-500/20 rounded-2xl"></div>
+        
+        {/* Animated Background Elements */}
+        <div className="absolute top-4 right-4 w-16 h-16 bg-white/10 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute bottom-8 left-8 w-20 h-20 bg-purple-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+        
+        {/* Card Content */}
+        <div className="relative z-10 h-full flex flex-col justify-between p-6">
+          
+          {/* Top Section */}
+          <div className="flex items-start justify-between">
+            {/* Bank Logo Placeholder */}
+            <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center backdrop-blur-sm">
+              <CreditCard className="w-6 h-6 text-white" strokeWidth={2} />
+            </div>
+            
+            {/* Add Button */}
+            <button
+              onClick={handleAddCard}
+              className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center hover:bg-white/30 transition-all duration-300 group-hover:scale-110"
+            >
+              <Plus className="w-5 h-5 text-white" strokeWidth={2} />
+            </button>
           </div>
-          <p className="text-lg font-semibold">${currentMonthData.income.toFixed(2)}</p>
-          <p className="text-xs text-gray-400">({months[currentMonth]})</p>
-        </div>
-        <div className="bg-white bg-opacity-10 rounded-lg p-3 transition-all duration-500">
-          <div className="flex items-center justify-between mb-1">
-            <p className="text-sm text-gray-300">Expenses</p>
-            <TrendingDown className="w-4 h-4 text-red-400" />
+          
+          {/* Middle Section */}
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="space-y-2">
+              <h3 className="text-xl font-bold text-white/90">Add Bank Card</h3>
+              <p className="text-white/70 text-sm leading-relaxed">
+                Connect your bank account to track expenses and manage your finances
+              </p>
+            </div>
           </div>
-          <p className="text-lg font-semibold">${currentMonthData.expenses.toFixed(2)}</p>
-          <p className="text-xs text-gray-400">({months[currentMonth]})</p>
+          
+          {/* Bottom Section */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Sparkles className="w-4 h-4 text-white/60" />
+              <span className="text-white/60 text-xs font-medium">Secure Connection</span>
+            </div>
+            
+            {/* Card Number Placeholder */}
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-white/40 rounded-full"></div>
+              <div className="w-2 h-2 bg-white/40 rounded-full"></div>
+              <div className="w-2 h-2 bg-white/40 rounded-full"></div>
+              <div className="w-2 h-2 bg-white/40 rounded-full"></div>
+            </div>
+          </div>
         </div>
+        
+        {/* Shimmer Effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
       </div>
     </div>
   );

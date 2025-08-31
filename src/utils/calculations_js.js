@@ -21,8 +21,34 @@ export const calculateMetrics = (transactions) => {
 };
 
 export const getCategoryInfo = (categories, categoryId) => {
-  return categories.find(cat => cat.id === categoryId) || { 
-    name: 'Other', 
+  // First try to find by id (for frontend categories)
+  const categoryById = categories.find(cat => cat.id === categoryId);
+  if (categoryById) {
+    return categoryById;
+  }
+  
+  // If not found by id, try to find by name (for backend categories)
+  const categoryByName = categories.find(cat => cat.name === categoryId);
+  if (categoryByName) {
+    return categoryByName;
+  }
+  
+  // If still not found, create a default category based on the categoryId string
+  const categoryMap = {
+    'FOOD_AND_DRINK': { name: 'Food & Drink', icon: '🍽️', color: 'bg-orange-100', type: 'expense' },
+    'TRANSPORT': { name: 'Transport', icon: '🚗', color: 'bg-blue-100', type: 'expense' },
+    'SHOPPING': { name: 'Shopping', icon: '🛍️', color: 'bg-purple-100', type: 'expense' },
+    'ENTERTAINMENT': { name: 'Entertainment', icon: '🎬', color: 'bg-pink-100', type: 'expense' },
+    'HEALTH': { name: 'Health', icon: '🏥', color: 'bg-red-100', type: 'expense' },
+    'EDUCATION': { name: 'Education', icon: '📚', color: 'bg-indigo-100', type: 'expense' },
+    'INCOME': { name: 'Income', icon: '💰', color: 'bg-green-100', type: 'income' },
+    'TRANSFER': { name: 'Transfer', icon: '🔄', color: 'bg-gray-100', type: 'transfer' },
+    'UTILITIES': { name: 'Utilities', icon: '⚡', color: 'bg-yellow-100', type: 'expense' },
+    'RENT': { name: 'Rent', icon: '🏠', color: 'bg-teal-100', type: 'expense' }
+  };
+  
+  return categoryMap[categoryId] || { 
+    name: categoryId || 'Other', 
     icon: '❓', 
     color: 'bg-gray-100',
     type: 'expense' 
@@ -31,29 +57,36 @@ export const getCategoryInfo = (categories, categoryId) => {
 
 export const filterTransactions = (transactions, searchTerm, filterCategory, categories) => {
   return transactions.filter(transaction => {
-    const matchesSearch = transaction.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = transaction.description.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const categoryInfo = getCategoryInfo(categories, transaction.categoryId);
+    const categoryInfo = getCategoryInfo(categories, transaction.category);
     const matchesCategory = filterCategory === 'all' || 
                            categoryInfo.type === filterCategory ||
-                           transaction.categoryId.toString() === filterCategory;
+                           transaction.category === filterCategory;
     
     return matchesSearch && matchesCategory;
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
 };
 
 export const calculateCategorySpending = (transactions, categories) => {
-  const expenseCategories = categories.filter(cat => cat.type === 'expense');
+  // Create a map of all unique categories from transactions
+  const uniqueCategories = [...new Set(transactions.map(t => t.category))];
+  
   const totalExpenses = Math.abs(transactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0));
   
-  return expenseCategories.map(category => {
-    const categoryTransactions = transactions.filter(t => t.categoryId === category.id && t.amount < 0);
+  return uniqueCategories.map(categoryName => {
+    const categoryTransactions = transactions.filter(t => t.category === categoryName && t.amount < 0);
     const categoryTotal = Math.abs(categoryTransactions.reduce((sum, t) => sum + t.amount, 0));
     const percentage = totalExpenses > 0 ? (categoryTotal / totalExpenses * 100) : 0;
     
+    const categoryInfo = getCategoryInfo(categories, categoryName);
+    
     return {
-      ...category,
+      id: categoryName,
+      name: categoryInfo.name,
+      icon: categoryInfo.icon,
+      color: categoryInfo.color,
+      type: categoryInfo.type,
       total: categoryTotal,
       percentage: percentage.toFixed(1),
       transactionCount: categoryTransactions.length

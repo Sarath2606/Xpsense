@@ -7,11 +7,11 @@ export const loadTransactions = () => {
     if (savedTransactions) {
       return JSON.parse(savedTransactions);
     }
-    // Return initial demo data if no saved data exists
-    return INITIAL_TRANSACTIONS;
+    // Return empty list if no saved data exists (disable demo data)
+    return [];
   } catch (error) {
     console.error('Error loading transactions:', error);
-    return INITIAL_TRANSACTIONS;
+    return [];
   }
 };
 

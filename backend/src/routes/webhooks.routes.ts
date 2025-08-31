@@ -160,7 +160,7 @@ async function handleAccountDisconnected(data: any) {
     // Mark account as inactive
     await prisma.connectedAccount.updateMany({
       where: { accountId, userId },
-      data: { isActive: false }
+      data: { status: 'INACTIVE' }
     });
 
     logger.info(`Account ${accountId} disconnected for user ${userId}`);

@@ -252,3 +252,631 @@ html {
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
+
+/* Dark Theme Styles */
+body {
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+/* Dark theme for main containers */
+.bg-gray-100 {
+  background-color: #1e293b !important;
+}
+
+.bg-white {
+  background-color: #1e293b !important;
+}
+
+.bg-gray-50 {
+  background-color: #334155 !important;
+}
+
+/* Dark theme for text - Brighter colors */
+.text-gray-900 {
+  color: #ffffff !important;
+}
+
+.text-gray-600 {
+  color: #e2e8f0 !important;
+}
+
+.text-gray-500 {
+  color: #cbd5e1 !important;
+}
+
+.text-gray-400 {
+  color: #94a3b8 !important;
+}
+
+.text-gray-300 {
+  color: #64748b !important;
+}
+
+/* Dark theme for borders */
+.border-gray-200 {
+  border-color: #475569 !important;
+}
+
+.border-gray-100 {
+  border-color: #334155 !important;
+}
+
+/* Dark theme for cards and components */
+.card-smooth {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+/* Dark theme for input fields */
+.input-smooth {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Dark theme for buttons */
+.bg-blue-100 {
+  background-color: #1e40af !important;
+}
+
+.text-blue-700 {
+  color: #93c5fd !important;
+}
+
+.bg-green-600 {
+  background-color: #059669 !important;
+}
+
+.bg-green-700 {
+  background-color: #047857 !important;
+}
+
+/* Dark theme for hover states */
+.hover\:bg-gray-100:hover {
+  background-color: #334155 !important;
+}
+
+.hover\:text-gray-700:hover {
+  color: #e2e8f0 !important;
+}
+
+/* Dark theme for navigation */
+.bg-black {
+  background-color: #475569 !important;
+}
+
+.hover\:bg-gray-800:hover {
+  background-color: #334155 !important;
+}
+
+/* Dark theme for icons and SVGs */
+svg {
+  color: #f1f5f9 !important;
+}
+
+/* Ensure proper contrast for specific icons in dark mode */
+.bg-gradient-to-br.from-blue-400.to-blue-500 svg,
+.bg-gradient-to-br.from-emerald-400.to-emerald-500 svg {
+  color: #ffffff !important;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+/* Enhanced visibility for card icons */
+.w-10.h-10.bg-gradient-to-br svg {
+  stroke-width: 2 !important;
+  color: #ffffff !important;
+}
+
+/* Force white color for specific icons in BalanceCard */
+.card-smooth .bg-gradient-to-br svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  fill: none !important;
+}
+
+/* High specificity override for icon colors */
+div[class*="bg-gradient-to-br"] svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+/* Specific override for the BalanceCard icons */
+.balance-card-icon svg,
+.add-card-button svg {
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+  stroke-width: 2 !important;
+}
+
+/* Glassy card effects for dark theme */
+.backdrop-blur-xl {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+}
+
+.backdrop-blur-sm {
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Enhanced shadows for glassy effect */
+.shadow-2xl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.shadow-3xl {
+  box-shadow: 0 35px 60px -12px rgba(0, 0, 0, 0.35);
+}
+
+/* Shimmer animation */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+  }
+  100% {
+    transform: translateX(100%) skewX(-12deg);
+  }
+}
+
+/* Dark theme for specific components */
+.bg-gray-100.rounded-full {
+  background-color: #334155 !important;
+}
+
+/* Dark theme for modal backgrounds */
+.bg-white.rounded-2xl {
+  background-color: #1e293b !important;
+}
+
+/* Dark theme for dropdown menus */
+.bg-white.border {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+/* Dark theme for form elements */
+input, select, textarea {
+  background-color: #334155 !important;
+  border-color: #475569 !important;
+  color: #f1f5f9 !important;
+}
+
+/* Dark theme for focus states */
+.focus\:border-blue-500:focus {
+  border-color: #3b82f6 !important;
+}
+
+/* Dark theme for shadows */
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2) !important;
+}
+
+.shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Dark theme for gradients */
+.bg-gradient-to-br.from-gray-900.to-gray-800 {
+  background: linear-gradient(to bottom right, #0f172a, #1e293b) !important;
+}
+
+/* Dark theme for specific text colors */
+.text-blue-600 {
+  color: #60a5fa !important;
+}
+
+.hover\:text-blue-700:hover {
+  color: #93c5fd !important;
+}
+
+/* Keep stats colors bright and vibrant */
+.text-green-600,
+.text-green-500,
+.text-green-400 {
+  color: #10b981 !important;
+}
+
+.text-red-600,
+.text-red-500,
+.text-red-400 {
+  color: #ef4444 !important;
+}
+
+.text-blue-600,
+.text-blue-500,
+.text-blue-400 {
+  color: #3b82f6 !important;
+}
+
+.text-yellow-600,
+.text-yellow-500,
+.text-yellow-400 {
+  color: #f59e0b !important;
+}
+
+.text-purple-600,
+.text-purple-500,
+.text-purple-400 {
+  color: #8b5cf6 !important;
+}
+
+.text-pink-600,
+.text-pink-500,
+.text-pink-400 {
+  color: #ec4899 !important;
+}
+
+.text-orange-600,
+.text-orange-500,
+.text-orange-400 {
+  color: #f97316 !important;
+}
+
+/* Keep background colors for stats bright */
+.bg-green-100 {
+  background-color: #dcfce7 !important;
+}
+
+.bg-red-100 {
+  background-color: #fee2e2 !important;
+}
+
+.bg-blue-100 {
+  background-color: #dbeafe !important;
+}
+
+.bg-yellow-100 {
+  background-color: #fef3c7 !important;
+}
+
+.bg-purple-100 {
+  background-color: #f3e8ff !important;
+}
+
+.bg-pink-100 {
+  background-color: #fce7f3 !important;
+}
+
+.bg-orange-100 {
+  background-color: #ffedd5 !important;
+}
+
+/* Ensure chart colors remain bright */
+.chart-container svg,
+.chart-container path,
+.chart-container circle,
+.chart-container rect {
+  color: inherit !important;
+}
+
+/* Keep progress bars and indicators bright */
+.progress-bar {
+  background-color: #10b981 !important;
+}
+
+.bg-green-500 {
+  background-color: #10b981 !important;
+}
+
+.bg-red-500 {
+  background-color: #ef4444 !important;
+}
+
+.bg-blue-500 {
+  background-color: #3b82f6 !important;
+}
+
+/* Hide Scrollbars - Comprehensive */
+::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+}
+
+::-webkit-scrollbar-track {
+  display: none !important;
+}
+
+::-webkit-scrollbar-thumb {
+  display: none !important;
+}
+
+::-webkit-scrollbar-corner {
+  display: none !important;
+}
+
+/* Hide scrollbars for IE, Edge and Firefox */
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+/* Additional scrollbar hiding for specific elements */
+html, body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Hide scrollbars for all scrollable containers */
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-y-scroll::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.overflow-y-auto,
+.overflow-y-scroll,
+.overflow-auto {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* FORCE DARK THEME - HIGH SPECIFICITY */
+html body {
+  background-color: #0f172a !important;
+  color: #ffffff !important;
+}
+
+html body * {
+  background-color: inherit !important;
+}
+
+/* Force dark backgrounds */
+html body .bg-gray-100,
+html body .bg-white {
+  background-color: #1e293b !important;
+}
+
+html body .bg-gray-50 {
+  background-color: #334155 !important;
+}
+
+/* Force bright text */
+html body .text-gray-900,
+html body h1,
+html body h2,
+html body h3,
+html body h4,
+html body h5,
+html body h6 {
+  color: #ffffff !important;
+}
+
+html body .text-gray-600,
+html body .text-gray-500 {
+  color: #e2e8f0 !important;
+}
+
+html body .text-gray-400 {
+  color: #cbd5e1 !important;
+}
+
+/* Force dark borders */
+html body .border-gray-200,
+html body .border-gray-100 {
+  border-color: #475569 !important;
+}
+
+/* Force bright stats colors */
+html body .text-green-600,
+html body .text-green-500,
+html body .text-green-400,
+html body .text-green-300 {
+  color: #10b981 !important;
+}
+
+html body .text-red-600,
+html body .text-red-500,
+html body .text-red-400,
+html body .text-red-300 {
+  color: #ef4444 !important;
+}
+
+html body .text-blue-600,
+html body .text-blue-500,
+html body .text-blue-400,
+html body .text-blue-300 {
+  color: #3b82f6 !important;
+}
+
+html body .text-yellow-600,
+html body .text-yellow-500,
+html body .text-yellow-400,
+html body .text-yellow-300 {
+  color: #f59e0b !important;
+}
+
+html body .text-purple-600,
+html body .text-purple-500,
+html body .text-purple-400,
+html body .text-purple-300 {
+  color: #8b5cf6 !important;
+}
+
+html body .text-pink-600,
+html body .text-pink-500,
+html body .text-pink-400,
+html body .text-pink-300 {
+  color: #ec4899 !important;
+}
+
+html body .text-orange-600,
+html body .text-orange-500,
+html body .text-orange-400,
+html body .text-orange-300 {
+  color: #f97316 !important;
+}
+
+/* Force bright background colors for stats */
+html body .bg-green-100 {
+  background-color: #dcfce7 !important;
+}
+
+html body .bg-red-100 {
+  background-color: #fee2e2 !important;
+}
+
+html body .bg-blue-100 {
+  background-color: #dbeafe !important;
+}
+
+html body .bg-yellow-100 {
+  background-color: #fef3c7 !important;
+}
+
+html body .bg-purple-100 {
+  background-color: #f3e8ff !important;
+}
+
+html body .bg-pink-100 {
+  background-color: #fce7f3 !important;
+}
+
+html body .bg-orange-100 {
+  background-color: #ffedd5 !important;
+}
+
+/* Force dark cards */
+html body .card-smooth {
+  background-color: #1e293b !important;
+  border-color: #475569 !important;
+}
+
+/* Force dark navigation */
+html body .bg-black {
+  background-color: #475569 !important;
+}
+
+/* Force bright progress bars */
+html body .bg-green-500 {
+  background-color: #10b981 !important;
+}
+
+html body .bg-red-500 {
+  background-color: #ef4444 !important;
+}
+
+html body .bg-blue-500 {
+  background-color: #3b82f6 !important;
+}
+
+/* Force bright borders for financial health score and insights */
+html body .border-green-200 {
+  border-color: #10b981 !important;
+}
+
+html body .border-blue-200 {
+  border-color: #3b82f6 !important;
+}
+
+html body .border-yellow-200 {
+  border-color: #f59e0b !important;
+}
+
+html body .border-red-200 {
+  border-color: #ef4444 !important;
+}
+
+/* Force bright borders for all colored borders */
+html body .border-green-100,
+html body .border-green-300,
+html body .border-green-400,
+html body .border-green-500,
+html body .border-green-600 {
+  border-color: #10b981 !important;
+}
+
+html body .border-blue-100,
+html body .border-blue-300,
+html body .border-blue-400,
+html body .border-blue-500,
+html body .border-blue-600 {
+  border-color: #3b82f6 !important;
+}
+
+html body .border-yellow-100,
+html body .border-yellow-300,
+html body .border-yellow-400,
+html body .border-yellow-500,
+html body .border-yellow-600 {
+  border-color: #f59e0b !important;
+}
+
+html body .border-red-100,
+html body .border-red-300,
+html body .border-red-400,
+html body .border-red-500,
+html body .border-red-600 {
+  border-color: #ef4444 !important;
+}
+
+html body .border-purple-100,
+html body .border-purple-200,
+html body .border-purple-300,
+html body .border-purple-400,
+html body .border-purple-500,
+html body .border-purple-600 {
+  border-color: #8b5cf6 !important;
+}
+
+html body .border-pink-100,
+html body .border-pink-200,
+html body .border-pink-300,
+html body .border-pink-400,
+html body .border-pink-500,
+html body .border-pink-600 {
+  border-color: #ec4899 !important;
+}
+
+html body .border-orange-100,
+html body .border-orange-200,
+html body .border-orange-300,
+html body .border-orange-400,
+html body .border-orange-500,
+html body .border-orange-600 {
+  border-color: #f97316 !important;
+}
+
+/* Force bright borders for any border class */
+html body [class*="border-"] {
+  border-color: #475569 !important;
+}
+
+/* Override with specific colors for colored borders */
+html body [class*="border-green"] {
+  border-color: #10b981 !important;
+}
+
+html body [class*="border-blue"] {
+  border-color: #3b82f6 !important;
+}
+
+html body [class*="border-yellow"] {
+  border-color: #f59e0b !important;
+}
+
+html body [class*="border-red"] {
+  border-color: #ef4444 !important;
+}
+
+html body [class*="border-purple"] {
+  border-color: #8b5cf6 !important;
+}
+
+html body [class*="border-pink"] {
+  border-color: #ec4899 !important;
+}
+
+html body [class*="border-orange"] {
+  border-color: #f97316 !important;
+}

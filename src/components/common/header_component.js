@@ -18,11 +18,30 @@ const HeaderComponent = ({ user, onLogout, onConnectBank }) => {
     <header className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
+          {/* Profile Icon */}
+          <div className="flex items-center">
+            {user?.photoURL ? (
+              <img 
+                src={user.photoURL} 
+                alt="Profile" 
+                className="h-8 w-8 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-8 w-8 rounded-full bg-black flex items-center justify-center">
+                <span className="text-sm font-medium text-white">
+                  {user?.displayName ? user.displayName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Logo/Brand */}
           <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <h1 className="text-xl font-bold text-gray-900">Xpenses</h1>
-            </div>
+            <img 
+              src="/logo.svg" 
+              alt="Xpenses Logo" 
+              className="h-8 w-auto object-contain"
+            />
           </div>
 
           {/* User Menu */}
@@ -31,17 +50,10 @@ const HeaderComponent = ({ user, onLogout, onConnectBank }) => {
               onClick={() => setShowDropdown(!showDropdown)}
               className="flex items-center space-x-3 text-sm rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
-              {/* User Avatar */}
-              <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center">
-                <span className="text-sm font-medium text-white">
-                  {user?.name ? user.name.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
-                </span>
-              </div>
-              
               {/* User Info */}
               <div className="hidden md:block text-left">
                 <p className="text-sm font-medium text-gray-900">
-                  {user?.name || 'User'}
+                  {user?.displayName || user?.email?.split('@')[0] || 'User'}
                 </p>
                 <p className="text-xs text-gray-500">
                   {user?.email}
@@ -67,7 +79,7 @@ const HeaderComponent = ({ user, onLogout, onConnectBank }) => {
                 {/* User Info in Dropdown */}
                 <div className="px-4 py-2 border-b border-gray-100">
                   <p className="text-sm font-medium text-gray-900">
-                    {user?.name || 'User'}
+                    {user?.displayName || user?.email?.split('@')[0] || 'User'}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
                     {user?.email}

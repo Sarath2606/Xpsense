@@ -1,11 +1,11 @@
 import { Router } from 'express';
 import { accountsController } from '../controllers/accounts.controller';
-import { authenticateToken } from '../middleware/auth.middleware';
+import { authenticateFirebaseToken } from '../middleware/firebase-auth.middleware';
 
 const router = Router();
 
 // All routes require authentication
-router.use(authenticateToken);
+router.use(authenticateFirebaseToken);
 
 // Get all connected accounts
 router.get('/', accountsController.getConnectedAccounts);

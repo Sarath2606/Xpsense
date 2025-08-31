@@ -21,7 +21,7 @@ export const errorHandler = (
     method: req.method,
     ip: req.ip,
     userAgent: req.get('User-Agent'),
-    stack: error.stack
+    stack: error instanceof Error ? error.stack : undefined
   });
 
   // Handle specific error types
@@ -51,7 +51,7 @@ export const errorHandler = (
     error: {
       message,
       statusCode,
-      ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
+      ...(process.env.NODE_ENV === 'development' && { stack: error instanceof Error ? error.stack : undefined })
     }
   });
 };
