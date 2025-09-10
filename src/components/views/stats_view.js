@@ -5,13 +5,15 @@ import { TrendingUp, TrendingDown, Target, Award, TrendingUp as TrendingUpIcon, 
 import CategoryIcon from '../ui/category_icon';
 import { calculateCategorySpending } from '../../utils/calculations_js';
 import BudgetCard from '../budget/budget_card.js';
-import BudgetForm from '../budget/budget_form.js';
 import UserDropdown from '../common/user_dropdown';
+import BottomNavigation from '../common/bottom_navigation';
 import SavingsGoalPost2 from '../stats/savings_goal_post2';
 import SavingsGoalDetail from '../stats/savings_goal_detail';
 import CurrencyConverter from '../stats/currency_converter';
-import BudgetGoalModal from '../budget/budget_goal_modal';
+import BudgetGoalPage from '../budget/budget_goal_page';
+import BudgetGoalDetail from '../budget/budget_goal_detail';
 import BudgetGoalsSection from '../budget/budget_goals_section';
+import { useBackendAccounts } from '../../hooks/use_backend_accounts';
 
 const StatsView = ({
   currentView,
@@ -28,13 +30,10 @@ const StatsView = ({
   authLoading,
   authError,
   isAuthenticated,
-  user
+  user,
 }) => {
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState('month');
-  const [showBudgetForm, setShowBudgetForm] = useState(false);
-  const [editingBudget, setEditingBudget] = useState(null);
-  const [editingGoal, setEditingGoal] = useState(null);
   const [budgetFilterStatus, setBudgetFilterStatus] = useState('all');
   const [activeChart, setActiveChart] = useState('overview');
   const [showSavingsPost, setShowSavingsPost] = useState(false);
@@ -42,36 +41,36 @@ const StatsView = ({
   const [selectedGoalForPost, setSelectedGoalForPost] = useState(null);
   const [selectedGoalForDetail, setSelectedGoalForDetail] = useState(null);
   const [showCurrencyConverter, setShowCurrencyConverter] = useState(false);
-  const [showBudgetGoalModal, setShowBudgetGoalModal] = useState(false);
+  const [showBudgetGoalPage, setShowBudgetGoalPage] = useState(false);
+  const [showBudgetGoalDetail, setShowBudgetGoalDetail] = useState(false);
+  const [selectedBudgetGoal, setSelectedBudgetGoal] = useState(null);
   const [budgetGoals, setBudgetGoals] = useState([]);
+
+  // Bank connection status
+  const { accounts, loading: accountsLoading } = useBackendAccounts();
+  const hasConnectedAccounts = accounts && accounts.length > 0;
+  
+  const isUsingRealData = hasConnectedAccounts && transactions && transactions.length > 0;
 
   const { balance = 0, income = 0, expenses = 0 } = metrics || {};
   const realCategorySpending = calculateCategorySpending(transactions || [], categories || []);
   
-  const categorySpending = realCategorySpending.length > 0 
-    ? realCategorySpending
-    : [
-        { id: 1, name: 'Food & Dining', total: 450, percentage: 32, transactionCount: 12 },
-        { id: 2, name: 'Transportation', total: 320, percentage: 23, transactionCount: 8 },
-        { id: 3, name: 'Shopping', total: 280, percentage: 20, transactionCount: 6 },
-        { id: 4, name: 'Entertainment', total: 180, percentage: 13, transactionCount: 4 },
-        { id: 5, name: 'Utilities', total: 150, percentage: 11, transactionCount: 3 },
-        { id: 6, name: 'Healthcare', total: 120, percentage: 9, transactionCount: 2 }
-      ];
+  // Only use real data when bank is connected, otherwise empty array
+  const categorySpending = hasConnectedAccounts ? realCategorySpending : [];
 
-  const totalTransactions = (transactions || []).length;
-  const avgTransactionAmount = totalTransactions > 0 
+  const totalTransactions = hasConnectedAccounts ? (transactions || []).length : 0;
+  const avgTransactionAmount = hasConnectedAccounts && totalTransactions > 0 
     ? Math.abs((transactions || []).reduce((sum, t) => sum + Math.abs(t.amount), 0) / totalTransactions)
     : 0;
 
-  const savingsRate = income > 0 ? ((income - Math.abs(expenses)) / income) * 100 : 0;
+  const savingsRate = hasConnectedAccounts && income > 0 ? ((income - Math.abs(expenses)) / income) * 100 : 0;
   
-  const financialHealthScore = Math.min(100, Math.max(0, 
+  const financialHealthScore = hasConnectedAccounts ? Math.min(100, Math.max(0, 
     (savingsRate * 0.4) + 
     (balance > 0 ? 30 : 0) + 
     (totalTransactions > 5 ? 20 : totalTransactions * 4) +
     (avgTransactionAmount < 100 ? 10 : 0)
-  ));
+  )) : 0;
 
   const pieChartData = categorySpending.length > 0 
     ? categorySpending.map(category => ({
@@ -79,24 +78,47 @@ const StatsView = ({
         value: Math.abs(category.total),
         color: getCategoryColor(category.id)
       })).filter(item => item.value > 0)
-    : [
-        { name: 'Food & Dining', value: 450, color: '#3B82F6' },
-        { name: 'Transportation', value: 320, color: '#10B981' },
-        { name: 'Shopping', value: 280, color: '#F59E0B' },
-        { name: 'Entertainment', value: 180, color: '#EF4444' },
-        { name: 'Utilities', value: 150, color: '#8B5CF6' },
-        { name: 'Healthcare', value: 120, color: '#06B6D4' }
-      ];
+    : [];
 
-  const spendingTrends = [
-    { day: 'Mon', income: 0, expenses: 45, net: -45 },
-    { day: 'Tue', income: 0, expenses: 32, net: -32 },
-    { day: 'Wed', income: 0, expenses: 67, net: -67 },
-    { day: 'Thu', income: 0, expenses: 23, net: -23 },
-    { day: 'Fri', income: 3000, expenses: 89, net: 2911 },
-    { day: 'Sat', income: 0, expenses: 56, net: -56 },
-    { day: 'Sun', income: 0, expenses: 34, net: -34 }
-  ];
+  // Real-time spending trends based on actual data
+  const generateRealTimeTrends = () => {
+    if (!hasConnectedAccounts || !isUsingRealData) {
+      return [];
+    }
+
+    // Group transactions by day of the week
+    const dayTotals = {
+      'Mon': { income: 0, expenses: 0 },
+      'Tue': { income: 0, expenses: 0 },
+      'Wed': { income: 0, expenses: 0 },
+      'Thu': { income: 0, expenses: 0 },
+      'Fri': { income: 0, expenses: 0 },
+      'Sat': { income: 0, expenses: 0 },
+      'Sun': { income: 0, expenses: 0 }
+    };
+
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    transactions.forEach(transaction => {
+      const date = new Date(transaction.date);
+      const dayName = days[date.getDay()];
+      
+      if (transaction.amount > 0) {
+        dayTotals[dayName].income += transaction.amount;
+      } else {
+        dayTotals[dayName].expenses += Math.abs(transaction.amount);
+      }
+    });
+
+    return Object.entries(dayTotals).map(([day, totals]) => ({
+      day,
+      income: totals.income,
+      expenses: totals.expenses,
+      net: totals.income - totals.expenses
+    }));
+  };
+
+  const spendingTrends = generateRealTimeTrends();
 
   function getCategoryColor(categoryId) {
     const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#84CC16', '#F97316'];
@@ -149,26 +171,131 @@ const StatsView = ({
     return '😟';
   };
 
-  const insights = [
-    {
-      type: 'positive',
-      icon: '💰',
-      title: 'Great Savings Rate',
-      message: `You're saving ${savingsRate.toFixed(1)}% of your income this month!`
-    },
-    {
-      type: 'info',
-      icon: '📊',
-      title: 'Top Spending Category',
-      message: categorySpending.length > 0 ? `${categorySpending[0].name} accounts for ${categorySpending[0].percentage}% of your spending` : 'No spending data available'
-    },
-    {
-      type: 'tip',
-      icon: '💡',
-      title: 'Smart Tip',
-      message: 'Consider setting up automatic transfers to savings for better financial health'
+  // Real-time insights based on actual data
+  const generateRealTimeInsights = () => {
+    if (!hasConnectedAccounts) {
+      return [
+        {
+          type: 'tip',
+          icon: '💡',
+          title: 'Connect Your Bank Account',
+          message: 'Connect your bank account to get personalized financial insights and recommendations.'
+        },
+        {
+          type: 'info',
+          icon: '📊',
+          title: 'Real-Time Analysis',
+          message: 'Get detailed spending analysis, trends, and smart recommendations based on your actual transactions.'
+        },
+        {
+          type: 'positive',
+          icon: '💰',
+          title: 'Smart Financial Management',
+          message: 'Track your spending, set budgets, and achieve your financial goals with real-time data.'
+        }
+      ];
     }
-  ];
+
+    const insights = [];
+
+    // Savings rate insight
+    if (savingsRate > 20) {
+      insights.push({
+        type: 'positive',
+        icon: '💰',
+        title: 'Excellent Savings Rate',
+        message: `You're saving ${savingsRate.toFixed(1)}% of your income! This is above the recommended 20% target.`
+      });
+    } else if (savingsRate > 10) {
+      insights.push({
+        type: 'info',
+        icon: '📈',
+        title: 'Good Savings Progress',
+        message: `You're saving ${savingsRate.toFixed(1)}% of your income. Consider increasing to 20% for better financial security.`
+      });
+    } else {
+      insights.push({
+        type: 'tip',
+        icon: '💡',
+        title: 'Improve Savings',
+        message: `Your savings rate is ${savingsRate.toFixed(1)}%. Try to save at least 20% of your income for better financial health.`
+      });
+    }
+
+    // Top spending category insight
+    if (categorySpending.length > 0) {
+      const topCategory = categorySpending[0];
+      if (topCategory.percentage > 40) {
+        insights.push({
+          type: 'tip',
+          icon: '🎯',
+          title: 'High Category Concentration',
+          message: `${topCategory.name} accounts for ${topCategory.percentage}% of your spending. Consider diversifying your expenses.`
+        });
+      } else {
+        insights.push({
+          type: 'positive',
+          icon: '📊',
+          title: 'Well-Distributed Spending',
+          message: `${topCategory.name} is your top category at ${topCategory.percentage}%. Your spending is well-balanced across categories.`
+        });
+      }
+    }
+
+    // Transaction frequency insight
+    if (totalTransactions > 0) {
+      const avgAmount = avgTransactionAmount;
+      if (avgAmount > 200) {
+        insights.push({
+          type: 'tip',
+          icon: '💳',
+          title: 'High Transaction Values',
+          message: `Your average transaction is $${avgAmount.toFixed(2)}. Consider reviewing large purchases for potential savings.`
+        });
+      } else if (avgAmount < 50) {
+        insights.push({
+          type: 'positive',
+          icon: '✅',
+          title: 'Good Transaction Management',
+          message: `Your average transaction is $${avgAmount.toFixed(2)}. You're managing your spending well with smaller, controlled purchases.`
+        });
+      }
+    }
+
+    // Essential vs discretionary spending insight
+    if (totalSpending > 0) {
+      const discretionaryPercentage = (discretionaryTotal / totalSpending) * 100;
+      if (discretionaryPercentage > 50) {
+        insights.push({
+          type: 'tip',
+          icon: '🎯',
+          title: 'High Discretionary Spending',
+          message: `${discretionaryPercentage.toFixed(1)}% of your spending is discretionary. Consider reducing non-essential expenses.`
+        });
+      } else {
+        insights.push({
+          type: 'positive',
+          icon: '✅',
+          title: 'Balanced Spending',
+          message: `${discretionaryPercentage.toFixed(1)}% of your spending is discretionary. You're maintaining a good balance between essential and non-essential expenses.`
+        });
+      }
+    }
+
+    // Add a general tip if we have room
+    if (insights.length < 3) {
+      insights.push({
+        type: 'tip',
+        icon: '💡',
+        title: 'Smart Tip',
+        message: 'Connect your bank account to get real-time insights and automatic transaction categorization.'
+      });
+    }
+
+    return insights.slice(0, 3); // Limit to 3 insights
+  };
+
+  const insights = generateRealTimeInsights();
 
   const budgetsEnabled = Boolean(budgetHook);
   
@@ -189,48 +316,42 @@ const StatsView = ({
   }) : [];
 
   useEffect(() => {
-    if (!budgetsEnabled || !budgetHook.allocateAutoSavingsForCurrentPeriod) return;
+    if (!budgetsEnabled || !budgetHook?.allocateAutoSavingsForCurrentPeriod) return;
     try {
       budgetHook.allocateAutoSavingsForCurrentPeriod();
     } catch (e) {
       console.error('Error allocating auto savings:', e);
     }
-  }, [budgetsEnabled, budgetPeriod]);
+  }, [budgetsEnabled]); // Removed budgetHook from dependencies to prevent infinite re-renders
 
-  const handleSaveBudget = (data) => {
-    if (!budgetsEnabled) return;
-    try {
-      if (data.mode === 'goal') {
-        if (data.id) {
-          budgetHook.updateGoal && budgetHook.updateGoal(data.id, { name: data.name, amount: data.amount, deadline: data.deadline, savingsPercent: data.savingsPercent, autoAllocate: data.autoAllocate });
-        } else {
-          budgetHook.addGoal && budgetHook.addGoal({ name: data.name, amount: data.amount, deadline: data.deadline, savingsPercent: data.savingsPercent, autoAllocate: data.autoAllocate });
-        }
-        setEditingGoal(null);
-      } else {
-        if (editingBudget) {
-          budgetHook.updateBudget && budgetHook.updateBudget(editingBudget.id, data);
-          setEditingBudget(null);
-        } else {
-          budgetHook.addBudget && budgetHook.addBudget(data);
-        }
-      }
-    } catch (e) {
-      console.error('Error saving budget/goal:', e);
+  const handleSaveBudgetGoal = (goal) => {
+    if (budgetsEnabled && budgetHook.addGoal) {
+      budgetHook.addGoal(goal);
     }
-    setShowBudgetForm(false);
-  };
-
-  const handleSaveBudgetGoal = (goalData) => {
-    setBudgetGoals(prev => [...prev, goalData]);
+    setShowBudgetGoalPage(false);
   };
 
   const handleUpdateBudgetGoal = (goalId, updates) => {
-    setBudgetGoals(prev => 
-      prev.map(goal => 
-        goal.id === goalId ? { ...goal, ...updates } : goal
-      )
-    );
+    if (budgetsEnabled && budgetHook.updateGoal) {
+      budgetHook.updateGoal(goalId, updates);
+    }
+  };
+
+  const handleGoalClick = (goal) => {
+    setSelectedBudgetGoal(goal);
+    setShowBudgetGoalDetail(true);
+  };
+
+  const handleAddSavings = (goalId, amount) => {
+    if (budgetsEnabled && budgetHook.addSavings) {
+      budgetHook.addSavings(goalId, amount);
+    }
+  };
+
+  const handleWithdraw = (goalId, amount) => {
+    if (budgetsEnabled && budgetHook.withdraw) {
+      budgetHook.withdraw(goalId, amount);
+    }
   };
 
   return (
@@ -240,12 +361,8 @@ const StatsView = ({
         {!showSavingsDetail && !showSavingsPost && !showCurrencyConverter && (
           <div className="bg-white border-b border-gray-200 px-6 py-4">
             <div className="flex items-center justify-between">
+              {/* Left Side - Empty for now */}
               <div className="flex items-center">
-                <img 
-                  src="/logo.svg" 
-                  alt="Xpenses Logo" 
-                  className="h-8 w-auto object-contain"
-                />
               </div>
               
               <div className="flex items-center space-x-3">
@@ -263,10 +380,16 @@ const StatsView = ({
                   >
                     {authLoading ? (
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : user?.photoURL ? (
+                      <img 
+                        src={user.photoURL} 
+                        alt="Profile" 
+                        className="h-8 w-8 rounded-full object-cover"
+                      />
                     ) : (
-                      <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
+                      <span className="text-sm font-medium text-white">
+                        {user?.displayName ? user.displayName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
+                      </span>
                     )}
                   </button>
                   
@@ -303,14 +426,8 @@ const StatsView = ({
                   console.log('Withdrawing:', amt);
                 }}
                 onEditGoal={() => {
-                  setEditingGoal({
-                    ...selectedGoalForDetail,
-                    onAddSavings: (amt) => budgetHook?.addSavingsToGoal && budgetHook.addSavingsToGoal(selectedGoalForDetail.id, amt),
-                    onAchieve: () => budgetHook?.markGoalAchieved && budgetHook.markGoalAchieved(selectedGoalForDetail.id),
-                    onDelete: () => budgetHook?.deleteGoal && budgetHook.deleteGoal(selectedGoalForDetail.id),
-                  });
-                  setShowSavingsDetail(false);
-                  setShowBudgetForm(true);
+                  // TODO: Add edit functionality for savings goals
+                  console.log('Edit savings goal clicked');
                 }}
               />
           ) : showSavingsPost && selectedGoalForPost ? (
@@ -322,45 +439,113 @@ const StatsView = ({
               targetAmount={selectedGoalForPost.amount}
               onAddSavings={(amt) => budgetHook?.addSavingsToGoal && budgetHook.addSavingsToGoal(selectedGoalForPost.id, amt)}
               onEditGoal={() => {
-                setEditingGoal({
-                  ...selectedGoalForPost,
-                  onAddSavings: (amt) => budgetHook?.addSavingsToGoal && budgetHook.addSavingsToGoal(selectedGoalForPost.id, amt),
-                  onAchieve: () => budgetHook?.markGoalAchieved && budgetHook.markGoalAchieved(selectedGoalForPost.id),
-                  onDelete: () => budgetHook?.deleteGoal && budgetHook.deleteGoal(selectedGoalForPost.id),
-                });
-                setShowSavingsPost(false);
-                setShowBudgetForm(true);
+                // TODO: Add edit functionality for savings goals
+                console.log('Edit savings goal clicked');
               }}
             />
           ) : showCurrencyConverter ? (
             <CurrencyConverter 
               onBack={() => setShowCurrencyConverter(false)}
             />
+          ) : showBudgetGoalPage ? (
+            <BudgetGoalPage
+              onBack={() => setShowBudgetGoalPage(false)}
+              onSave={handleSaveBudgetGoal}
+              isBankConnected={hasConnectedAccounts}
+              onConnectBank={() => {
+                setShowBudgetGoalPage(false);
+                // TODO: Add logic to show bank connection modal
+                console.log('Connect bank clicked');
+              }}
+            />
+          ) : showBudgetGoalDetail && selectedBudgetGoal ? (
+            <BudgetGoalDetail
+              goal={selectedBudgetGoal}
+              onBack={() => {
+                setShowBudgetGoalDetail(false);
+                setSelectedBudgetGoal(null);
+              }}
+              onAddSavings={handleAddSavings}
+              onWithdraw={handleWithdraw}
+              onEditGoal={() => {
+                setShowBudgetGoalDetail(false);
+                // TODO: Add edit functionality
+                console.log('Edit goal clicked');
+              }}
+            />
           ) : (
-            <div className="px-6 py-6">
+            <div className="px-6 py-6 relative">
               {/* Chart Navigation */}
               <div className="flex space-x-2 mb-6">
-                {[
-                  { id: 'overview', label: 'Overview', icon: Activity },
-                  { id: 'spending', label: 'Spending', icon: PieChartIcon },
-                  { id: 'trends', label: 'Trends', icon: BarChart3 }
-                ].map(chart => (
-                  <button
-                    key={chart.id}
-                    onClick={() => setActiveChart(chart.id)}
-                    className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      activeChart === chart.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                  >
-                    <chart.icon className="w-4 h-4 mr-2" />
-                    {chart.label}
-                  </button>
-                ))}
-              </div>
+                  {[
+                    { id: 'overview', label: 'Overview', icon: Activity },
+                    { id: 'spending', label: 'Spending', icon: PieChartIcon },
+                    { id: 'trends', label: 'Trends', icon: BarChart3 }
+                  ].map(chart => (
+                    <button
+                      key={chart.id}
+                      onClick={() => setActiveChart(chart.id)}
+                      className={`flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                        activeChart === chart.id
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                      }`}
+                    >
+                      <chart.icon className="w-4 h-4 mr-2" />
+                      {chart.label}
+                    </button>
+                  ))}
+                </div>
 
-              {/* Overview Section */}
+
+
+              {/* Bank Connection Required Section */}
+              {!hasConnectedAccounts && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-6">
+                  <div className="text-center">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-2">Connect Your Bank Account</h3>
+                    <p className="text-gray-600 mb-4">
+                      Get personalized financial insights, real-time spending analysis, and smart recommendations based on your actual transactions.
+                    </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Real-time transaction analysis</span>
+                      </div>
+                      <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Personalized spending insights</span>
+                      </div>
+                      <div className="flex items-center justify-center space-x-2 text-sm text-gray-600">
+                        <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Smart financial recommendations</span>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        // TODO: Add logic to show bank connection modal
+                        console.log('Connect bank clicked from stats overview');
+                      }}
+                      className="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors shadow-lg"
+                    >
+                      Connect Bank Account
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Overview Section - Show for all users */}
               {activeChart === 'overview' && (
                 <>
                   {/* Financial Health Score */}
@@ -386,7 +571,8 @@ const StatsView = ({
                       </span>
                     </div>
                     <p className="text-gray-600 text-sm mt-2">
-                      {financialHealthScore >= 80 ? 'Excellent! Keep up the great work!' :
+                      {!hasConnectedAccounts ? 'Connect your bank account to get your personalized financial health score' :
+                       financialHealthScore >= 80 ? 'Excellent! Keep up the great work!' :
                        financialHealthScore >= 60 ? 'Good! Room for improvement.' :
                        'Needs attention. Consider reviewing your spending habits.'}
                     </p>
@@ -398,7 +584,7 @@ const StatsView = ({
                       <div className="flex items-center justify-center mb-1">
                         <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
                         <h3 className="text-green-600 font-bold text-2xl">
-                          ${income.toFixed(2)}
+                          ${hasConnectedAccounts ? income.toFixed(2) : '0.00'}
                         </h3>
                       </div>
                       <p className="text-gray-600 text-sm">Total Income</p>
@@ -407,7 +593,7 @@ const StatsView = ({
                       <div className="flex items-center justify-center mb-1">
                         <TrendingDown className="w-4 h-4 text-red-600 mr-1" />
                         <h3 className="text-red-600 font-bold text-2xl">
-                          ${Math.abs(expenses).toFixed(2)}
+                          ${hasConnectedAccounts ? Math.abs(expenses).toFixed(2) : '0.00'}
                         </h3>
                       </div>
                       <p className="text-gray-600 text-sm">Total Expenses</p>
@@ -417,11 +603,12 @@ const StatsView = ({
                   {/* Savings Rate */}
                   <div className="bg-blue-50 rounded-xl p-4 mb-6 text-center">
                     <h3 className="text-blue-600 font-bold text-2xl">
-                      {savingsRate.toFixed(1)}%
+                      {hasConnectedAccounts ? savingsRate.toFixed(1) : '0.0'}%
                     </h3>
                     <p className="text-gray-600 text-sm">Savings Rate</p>
                     <p className="text-gray-500 text-xs mt-1">
-                      {savingsRate > 20 ? 'Great savings rate!' : 
+                      {!hasConnectedAccounts ? 'Connect bank account to see your savings rate' :
+                       savingsRate > 20 ? 'Great savings rate!' : 
                        savingsRate > 10 ? 'Good progress!' : 'Consider increasing savings'}
                     </p>
                   </div>
@@ -452,68 +639,115 @@ const StatsView = ({
                   <BudgetGoalsSection 
                     budgetGoals={budgetGoals}
                     onUpdateGoal={handleUpdateBudgetGoal}
+                    onGoalClick={handleGoalClick}
                   />
+
+                  {/* Quick Actions */}
+                  <div className="space-y-3">
+                      <h3 className="font-semibold text-gray-900">Quick Actions</h3>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button 
+                          onClick={() => setShowCurrencyConverter(true)}
+                          className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-xl text-sm font-medium transition-colors"
+                        >
+                          Convert
+                        </button>
+                        <button 
+                          onClick={() => setShowBudgetGoalPage(true)}
+                          className="bg-blue-600 text-white p-3 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
+                        >
+                          Set Budget Goals
+                        </button>
+                        <button className="bg-purple-600 text-white p-3 rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors">
+                          Analyze Spending
+                        </button>
+                        <button 
+                          onClick={() => setCurrentView('splitwise')}
+                          className="bg-purple-600 text-white p-3 rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors"
+                        >
+                          Split Expenses
+                        </button>
+                      </div>
+                    </div>
                 </>
               )}
 
               {/* Spending Section */}
-              {activeChart === 'spending' && (
+
+
+              {/* Spending Section - Only show when bank is connected */}
+              {activeChart === 'spending' && hasConnectedAccounts && (
                 <>
                   {/* Spending by Category Pie Chart */}
                   <div className="bg-white rounded-xl p-4 mb-6 border border-gray-200">
                     <h3 className="font-semibold text-gray-900 mb-4">Spending by Category</h3>
                     {pieChartData.length > 0 ? (
                       <div>
-                        <ResponsiveContainer width="100%" height={200}>
-                          <PieChart>
-                            <Pie
-                              data={pieChartData}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              outerRadius={70}
-                              innerRadius={15}
-                              fill="#8884d8"
-                              dataKey="value"
-                              startAngle={90}
-                              endAngle={-270}
-                              paddingAngle={2}
-                            >
-                              {pieChartData.map((entry, index) => (
-                                <Cell 
-                                  key={`cell-${index}`} 
-                                  fill={entry.color}
-                                  stroke="#ffffff"
-                                  strokeWidth={2}
-                                />
-                              ))}
-                            </Pie>
-                            <Tooltip 
-                              formatter={(value) => [`$${value.toFixed(2)}`, 'Amount']}
-                              labelStyle={{ color: '#374151' }}
-                              contentStyle={{
-                                backgroundColor: 'white',
-                                border: '1px solid #e5e7eb',
-                                borderRadius: '8px',
-                                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
-                              }}
-                            />
-                          </PieChart>
-                        </ResponsiveContainer>
+                        <div style={{ width: '100%', height: '300px' }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                              <Pie
+                                data={pieChartData}
+                                cx="50%"
+                                cy="50%"
+                                labelLine={false}
+                                outerRadius={80}
+                                innerRadius={20}
+                                fill="#8884d8"
+                                dataKey="value"
+                                startAngle={90}
+                                endAngle={-270}
+                                paddingAngle={2}
+                              >
+                                {pieChartData.map((entry, index) => (
+                                  <Cell 
+                                    key={`cell-${index}`} 
+                                    fill={entry.color}
+                                    stroke="#ffffff"
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip 
+                                formatter={(value) => [`$${value.toFixed(2)}`, 'Amount']}
+                                labelStyle={{ color: '#374151' }}
+                                contentStyle={{
+                                  backgroundColor: 'white',
+                                  border: '1px solid #e5e7eb',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                                }}
+                              />
+                            </PieChart>
+                          </ResponsiveContainer>
+                        </div>
                         
                         {/* Legend with colored dots */}
-                        <div className="mt-4 grid grid-cols-2 gap-3">
-                          {pieChartData.map((entry, index) => (
-                            <div key={index} className="flex items-center space-x-2">
-                              <div 
-                                className="w-3 h-3 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: entry.color }}
-                              ></div>
-                              <span className="text-sm text-gray-700 font-medium truncate">
-                                {entry.name}
-                              </span>
-                            </div>
-                          ))}
+                        <div className="mt-4 bg-white rounded-lg p-4 border border-gray-200">
+                          <h4 className="font-medium text-gray-900 mb-3">Category Breakdown</h4>
+                          <div className="space-y-3">
+                            {pieChartData.map((entry, index) => (
+                              <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="flex items-center space-x-3">
+                                  <div 
+                                    className="w-4 h-4 rounded-full flex-shrink-0 shadow-sm"
+                                    style={{ backgroundColor: entry.color }}
+                                  ></div>
+                                  <div>
+                                    <span className="text-sm font-medium text-gray-900">
+                                      {entry.name}
+                                    </span>
+                                    <p className="text-xs text-gray-500">
+                                      ${entry.value.toFixed(2)}
+                                    </p>
+                                  </div>
+                                </div>
+                                <span className="text-sm font-semibold text-gray-700">
+                                  {((entry.value / pieChartData.reduce((sum, item) => sum + item.value, 0)) * 100).toFixed(1)}%
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -546,7 +780,7 @@ const StatsView = ({
                               <div className="w-8 h-8 rounded-full flex items-center justify-center" 
                                    style={{ backgroundColor: getCategoryColor(category.id) + '20' }}>
                                 <span className="text-sm font-medium" style={{ color: getCategoryColor(category.id) }}>
-                                  {category.name.charAt(0)}
+                                  {(category.name || '?').charAt(0)}
                                 </span>
                               </div>
                               <div>
@@ -586,7 +820,7 @@ const StatsView = ({
                               <div className="w-8 h-8 rounded-full flex items-center justify-center" 
                                    style={{ backgroundColor: getCategoryColor(category.id) + '20' }}>
                                 <span className="text-sm font-medium" style={{ color: getCategoryColor(category.id) }}>
-                                  {category.name.charAt(0)}
+                                  {(category.name || '?').charAt(0)}
                                 </span>
                               </div>
                               <div>
@@ -624,7 +858,10 @@ const StatsView = ({
               )}
 
               {/* Trends Section */}
-              {activeChart === 'trends' && (
+
+
+              {/* Trends Section - Only show when bank is connected */}
+              {activeChart === 'trends' && hasConnectedAccounts && (
                 <>
                   {/* Spending Trends Chart */}
                   <div className="bg-white rounded-xl p-4 mb-6 border border-gray-200">
@@ -682,161 +919,15 @@ const StatsView = ({
                   </div>
                 </>
               )}
-
-
-
-              {/* Quick Actions */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-gray-900">Quick Actions</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <button 
-                    onClick={() => setShowCurrencyConverter(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white p-3 rounded-xl text-sm font-medium transition-colors"
-                  >
-                    Convert
-                  </button>
-                  <button 
-                    onClick={() => setShowBudgetGoalModal(true)}
-                    className="bg-blue-600 text-white p-3 rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    Set Budget Goals
-                  </button>
-                  <button className="bg-purple-600 text-white p-3 rounded-xl text-sm font-medium hover:bg-purple-700 transition-colors">
-                    Analyze Spending
-                  </button>
-                  <button className="bg-orange-600 text-white p-3 rounded-xl text-sm font-medium hover:bg-orange-700 transition-colors">
-                    Debt Strategy
-                  </button>
-                </div>
-              </div>
             </div>
           )}
         </div>
 
         {/* Bottom Navigation */}
-        <div className="bg-white border-t border-gray-200">
-          <div className="flex justify-around">
-            {[
-              {
-                id: 'home',
-                label: 'Home',
-                icon: (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                  </svg>
-                )
-              },
-              {
-                id: 'transactions',
-                label: 'Transactions',
-                icon: (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                  </svg>
-                )
-              },
-              {
-                id: 'stats',
-                label: 'Stats',
-                icon: (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                )
-              },
-              {
-                id: 'advisor',
-                label: 'Advisor',
-                icon: (
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                )
-              }
-            ].map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setCurrentView(item.id)}
-                className={`flex flex-col items-center py-3 px-4 flex-1 transition-colors duration-200 ${
-                  currentView === item.id
-                    ? 'text-blue-600'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
-              >
-                <div className={`transition-colors duration-200 ${
-                  currentView === item.id ? 'text-blue-600' : 'text-gray-500'
-                }`}>
-                  {item.icon}
-                </div>
-                <span className="text-xs mt-1 font-medium">
-                  {item.label}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <BottomNavigation currentView={currentView} setCurrentView={setCurrentView} />
       </div>
 
-      {/* Budget Form Modal */}
-      {showBudgetForm && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-3" 
-          role="dialog" 
-          aria-modal="true"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setShowBudgetForm(false);
-              setEditingBudget(null);
-            }
-          }}
-        >
-          <div 
-            className="w-full max-w-xs sm:max-w-sm bg-white rounded-xl shadow-xl border border-gray-200 flex flex-col max-h-[80vh] overflow-hidden"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-3 border-b border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900">
-                {editingGoal ? 'Edit Goal' : editingBudget ? 'Edit Budget' : 'Add Budget / Goal'}
-              </h3>
-              <button
-                onClick={() => {
-                  setShowBudgetForm(false);
-                  setEditingBudget(null);
-                  setEditingGoal(null);
-                }}
-                className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4 text-gray-600" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
-              <BudgetForm
-                onClose={() => {
-                  setShowBudgetForm(false);
-                  setEditingBudget(null);
-                  setEditingGoal(null);
-                }}
-                onSave={handleSaveBudget}
-                categories={categories}
-                editingBudget={editingBudget}
-                editingGoal={editingGoal}
-                budgetPeriod={budgetPeriod}
-                showHeader={false}
-                useCardContainer={false}
-                compact
-              />
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* Budget Goal Modal */}
-      <BudgetGoalModal
-        isOpen={showBudgetGoalModal}
-        onClose={() => setShowBudgetGoalModal(false)}
-        onSave={handleSaveBudgetGoal}
-      />
     </div>
   );
 };

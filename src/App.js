@@ -7,6 +7,7 @@ import HomeView from './components/views/home_view';
 import TransactionsView from './components/views/transactions_view';
 import StatsView from './components/views/stats_view';
 import AdvisorView from './components/views/advisor_view';
+import SplitwiseViewPage from './components/views/splitwise_view';
 import ConnectBankModal from './components/accounts/connect_bank_modal';
 import { useBudget } from './hooks/use_budget_hook';
 
@@ -169,6 +170,21 @@ const AppContent = () => {
             currentView={currentView}
             setCurrentView={setCurrentView}
             setShowAddTransaction={() => {}}
+            userName={user?.displayName || user?.email}
+            userPhotoURL={user?.photoURL}
+            onSignOut={signOutUser}
+            onSignIn={() => setShowAuthModal(true)}
+            authLoading={loading}
+            authError={error}
+            isAuthenticated={isAuthenticated}
+            user={user}
+          />
+        );
+      case 'splitwise':
+        return (
+          <SplitwiseViewPage 
+            currentView={currentView}
+            setCurrentView={setCurrentView}
             userName={user?.displayName || user?.email}
             userPhotoURL={user?.photoURL}
             onSignOut={signOutUser}

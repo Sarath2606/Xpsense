@@ -1,6 +1,6 @@
 import { auth } from './firebase';
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://players-snowboard-numeric-certainly.trycloudflare.com/api';
 
 class ApiService {
   constructor() {
@@ -11,8 +11,18 @@ class ApiService {
   async getAuthToken() {
     try {
       const currentUser = auth.currentUser;
+      console.log('API: Checking auth state - currentUser:', currentUser ? 'exists' : 'null');
+      
       if (!currentUser) {
-        throw new Error('No authenticated user');
+        // Wait a bit for auth state to be available
+        await new Promise(resolve => setTimeout(resolve, 100));
+        const retryUser = auth.currentUser;
+        console.log('API: Retry auth check - currentUser:', retryUser ? 'exists' : 'null');
+        
+        if (!retryUser) {
+          throw new Error('No authenticated user');
+        }
+        return await retryUser.getIdToken();
       }
       return await currentUser.getIdToken();
     } catch (error) {
@@ -31,9 +41,15 @@ class ApiService {
       try {
         const token = await this.getAuthToken();
         headers['Authorization'] = `Bearer ${token}`;
+        console.log('API: Successfully added auth token to headers');
       } catch (error) {
         console.error('Failed to get auth token for headers:', error);
-        // Don't throw here, let the request proceed without auth
+        // For Splitwise endpoints, we need authentication
+        if (error.message === 'No authenticated user') {
+          console.log('API: No authenticated user found, throwing auth error');
+          throw new Error('Please login to use Splitwise features');
+        }
+        // Don't throw here, let the request proceed without auth for other endpoints
       }
     }
 
@@ -42,8 +58,8 @@ class ApiService {
 
   // Generic API request method with retry logic
   async request(endpoint, options = {}) {
-    const maxRetries = options.maxRetries || 3;
-    const baseDelay = options.baseDelay || 1000; // 1 second
+    const maxRetries = options.maxRetries || 2; // Reduced from 3 to 2
+    const baseDelay = options.baseDelay || 2000; // Increased from 1000 to 2000ms
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -260,6 +276,160 @@ class ApiService {
   // Health check
   health = () => 
     this.request('/health', { includeAuth: false });
+
+  // Splitwise endpoints
+  splitwise = {
+    // Groups
+    groups: {
+      getAll: () => 
+        this.request('/splitwise/groups'),
+
+      getById: (groupId) => 
+        this.request(`/splitwise/groups/${groupId}`),
+
+      create: (groupData) => 
+        this.request('/splitwise/groups', {
+          method: 'POST',
+          body: JSON.stringify(groupData),
+        }),
+
+      update: (groupId, groupData) => 
+        this.request(`/splitwise/groups/${groupId}`, {
+          method: 'PUT',
+          body: JSON.stringify(groupData),
+        }),
+
+      delete: (groupId) => 
+        this.request(`/splitwise/groups/${groupId}`, {
+          method: 'DELETE',
+        }),
+
+      addMember: (groupId, memberData) => 
+        this.request(`/splitwise/groups/${groupId}/members`, {
+          method: 'POST',
+          body: JSON.stringify(memberData),
+        }),
+
+      removeMember: (groupId, memberId) => 
+        this.request(`/splitwise/groups/${groupId}/members/${memberId}`, {
+          method: 'DELETE',
+        }),
+
+      updateMemberRole: (groupId, memberId, roleData) => 
+        this.request(`/splitwise/groups/${groupId}/members/${memberId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(roleData),
+        }),
+    },
+
+    // Expenses
+    expenses: {
+      getByGroup: (groupId, params = {}) => {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/splitwise/expenses/groups/${groupId}/expenses${queryString ? `?${queryString}` : ''}`);
+      },
+
+      getById: (expenseId) => 
+        this.request(`/splitwise/expenses/${expenseId}`),
+
+      create: (groupId, expenseData) => 
+        this.request(`/splitwise/expenses/groups/${groupId}/expenses`, {
+          method: 'POST',
+          body: JSON.stringify(expenseData),
+        }),
+
+      update: (expenseId, expenseData) => 
+        this.request(`/splitwise/expenses/${expenseId}`, {
+          method: 'PUT',
+          body: JSON.stringify(expenseData),
+        }),
+
+      delete: (expenseId) => 
+        this.request(`/splitwise/expenses/${expenseId}`, {
+          method: 'DELETE',
+        }),
+
+      getSplitTypes: () => 
+        this.request('/splitwise/expenses/split-types'),
+    },
+
+    // Balances
+    balances: {
+      getGroupBalances: (groupId) => 
+        this.request(`/splitwise/balances/groups/${groupId}/balances`),
+
+      getMyBalance: (groupId) => 
+        this.request(`/splitwise/balances/groups/${groupId}/balances/my-balance`),
+
+      getMyGroupBalances: () => 
+        this.request('/splitwise/balances/my-groups'),
+
+      validateGroupBalances: (groupId) => 
+        this.request(`/splitwise/balances/groups/${groupId}/balances/validate`),
+
+      getBalanceHistory: (groupId, days = 30) => 
+        this.request(`/splitwise/balances/groups/${groupId}/balances/history?days=${days}`),
+
+      getSettlementSuggestions: (groupId) => 
+        this.request(`/splitwise/balances/groups/${groupId}/balances/settlements`),
+    },
+
+    // Invites
+    invites: {
+      sendInvite: (groupId, inviteData) => 
+        this.request(`/splitwise/groups/${groupId}/invites`, {
+          method: 'POST',
+          body: JSON.stringify(inviteData),
+        }),
+
+      acceptInvite: (token) => 
+        this.request('/splitwise/invites/accept', {
+          method: 'POST',
+          body: JSON.stringify({ token }),
+        }),
+
+      getPendingInvites: () => 
+        this.request('/splitwise/invites/pending'),
+
+      cancelInvite: (inviteId) => 
+        this.request(`/splitwise/invites/${inviteId}`, {
+          method: 'DELETE',
+        }),
+    },
+
+    // Settlements
+    settlements: {
+      getByGroup: (groupId, params = {}) => {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/splitwise/settlements/groups/${groupId}/settlements${queryString ? `?${queryString}` : ''}`);
+      },
+
+      getById: (settlementId) => 
+        this.request(`/splitwise/settlements/${settlementId}`),
+
+      create: (groupId, settlementData) => 
+        this.request(`/splitwise/settlements/groups/${groupId}/settlements`, {
+          method: 'POST',
+          body: JSON.stringify(settlementData),
+        }),
+
+      update: (settlementId, settlementData) => 
+        this.request(`/splitwise/settlements/${settlementId}`, {
+          method: 'PUT',
+          body: JSON.stringify(settlementData),
+        }),
+
+      delete: (settlementId) => 
+        this.request(`/splitwise/settlements/${settlementId}`, {
+          method: 'DELETE',
+        }),
+
+      getByUser: (groupId, userId, params = {}) => {
+        const queryString = new URLSearchParams(params).toString();
+        return this.request(`/splitwise/settlements/groups/${groupId}/settlements/user/${userId}${queryString ? `?${queryString}` : ''}`);
+      },
+    },
+  };
 }
 
 // Create and export a single instance

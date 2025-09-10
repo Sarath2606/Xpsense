@@ -48,18 +48,39 @@ class ConsentController {
                 let redirectUrl;
                 let consentRef;
                 try {
-                    const isConnected = await mastercard_api_service_1.mastercardApiService.testConnectivity();
-                    if (!isConnected) {
-                        throw new Error('Mastercard sandbox is currently unavailable. Please try again later.');
+                    await mastercard_api_service_1.mastercardApiService.getAppToken();
+                    let user = await prisma.user.findUnique({
+                        where: { id: userId },
+                        select: { email: true, name: true }
+                    });
+                    if (!user) {
+                        logger_1.logger.warn(`User ${userId} not found in database, creating test user`);
+                        user = await prisma.user.create({
+                            data: {
+                                id: userId,
+                                email: `test-${userId}@example.com`,
+                                name: 'Test User',
+                                firebaseUid: userId
+                            },
+                            select: { email: true, name: true }
+                        });
+                        logger_1.logger.info(`Created test user: ${user.email}`);
                     }
-                    const consentSession = await mastercard_api_service_1.mastercardApiService.createConsentSession(scopes, redirectUri, state, nonce, durationDays);
-                    redirectUrl = consentSession.redirectUrl;
-                    consentRef = consentSession.consentId;
-                }
-                catch (sessionError) {
-                    logger_1.logger.warn('Consent session creation failed, using OAuth authorize URL fallback:', sessionError);
-                    redirectUrl = mastercard_api_service_1.mastercardApiService.generateOAuthUrl(state);
+                    const customerId = await mastercard_api_service_1.mastercardApiService.createTestCustomer(userId, user.email, user.name || 'Test User');
+                    const webhookUrl = process.env.WEBHOOK_URL || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/webhooks/mastercard`;
+                    redirectUrl = await mastercard_api_service_1.mastercardApiService.generateConnectUrl(customerId, webhookUrl);
                     consentRef = state;
+                    logger_1.logger.info('Successfully generated Connect URL for bank connection');
+                }
+                catch (connectError) {
+                    const errorMessage = connectError instanceof Error ? connectError.message : String(connectError);
+                    const errorStack = connectError instanceof Error ? connectError.stack : undefined;
+                    logger_1.logger.error('Failed to generate Connect URL:', {
+                        error: errorMessage,
+                        stack: errorStack,
+                        userId: userId
+                    });
+                    throw new Error(`Unable to generate bank connection URL: ${errorMessage}`);
                 }
                 const consent = await prisma.consent.create({
                     data: {

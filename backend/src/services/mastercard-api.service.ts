@@ -75,6 +75,7 @@ export class MastercardApiService {
   private clientId: string;
   private clientSecret: string;
   private partnerId: string;
+  private appToken: string;
   private isSandboxDown: boolean = false;
   private lastHealthCheck: number = 0;
   private readonly HEALTH_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -83,16 +84,18 @@ export class MastercardApiService {
 
   constructor() {
     this.baseUrl = process.env.MASTERCARD_API_BASE_URL || 'https://api.openbanking.mastercard.com.au';
-    this.clientId = process.env.MASTERCARD_CLIENT_ID || '';
-    this.clientSecret = process.env.MASTERCARD_CLIENT_SECRET || '';
-    this.partnerId = process.env.MASTERCARD_PARTNER_ID || '';
+    this.clientId = process.env.MASTERCARD_CLIENT_ID || '5ad34a4227b6c585beaa8dc7e1d2d2f5';
+    this.clientSecret = process.env.MASTERCARD_CLIENT_SECRET || 'QFgTbpYOHHPBU8xfFZ5p';
+    this.partnerId = process.env.MASTERCARD_PARTNER_ID || '2445584957219';
+    this.appToken = process.env.MASTERCARD_APP_TOKEN || '';
 
     this.client = axios.create({
       baseURL: this.baseUrl,
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'App-Token': this.appToken
       }
     });
 
@@ -222,6 +225,39 @@ export class MastercardApiService {
     }
 
     return status;
+  }
+
+  /**
+   * Get App-Token for authentication
+   */
+  async getAppToken(): Promise<string> {
+    if (this.appToken) {
+      return this.appToken;
+    }
+    try {
+      const response = await axios.post(`${this.baseUrl}/aggregation/v2/partners/authentication`, {
+        partnerId: this.partnerId,
+        partnerSecret: this.clientSecret
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'App-Key': this.clientId
+        },
+        timeout: 10000
+      });
+
+      if (response.data && response.data.token) {
+        this.appToken = response.data.token;
+        logger.info('Successfully obtained App-Token');
+        return this.appToken;
+      }
+      
+      throw new Error('No token received from authentication endpoint');
+    } catch (error) {
+      logger.error('Failed to get App-Token:', error);
+      throw error;
+    }
   }
 
   /**
@@ -525,24 +561,84 @@ export class MastercardApiService {
   }
 
   /**
-   * Generate OAuth URL for testing (fallback)
+   * Create a test customer for Mastercard Open Banking
    */
-  generateOAuthUrl(state: string): string {
-    if (!this.clientId || !this.partnerId) {
-      logger.error('Mastercard credentials not configured');
-      throw new Error('Mastercard credentials not configured');
+  async createTestCustomer(userId: string, userEmail: string, userName: string): Promise<string> {
+    try {
+      const response = await this.client.post('/aggregation/v2/customers/testing', {
+        username: `user_${userId}_${Date.now()}`,
+        firstName: userName.split(' ')[0] || 'User',
+        lastName: userName.split(' ').slice(1).join(' ') || 'Test',
+        email: userEmail,
+        phone: '+61412345678' // Default Australian phone number for testing
+      }, {
+        headers: {
+          'App-Token': this.appToken,
+          'App-Key': this.clientId
+        }
+      });
+
+      if (response.data && response.data.id) {
+        logger.info('Successfully created test customer');
+        return response.data.id;
+      }
+      
+      throw new Error('No customer ID received from API');
+    } catch (error) {
+      logger.error('Failed to create test customer:', error);
+      throw new Error('Failed to create test customer for bank connection');
+    }
+  }
+
+  /**
+   * Generate Connect URL for bank connection (Mastercard Open Banking)
+   */
+  async generateConnectUrl(customerId: string, webhookUrl?: string): Promise<string> {
+    if (!this.appToken || !this.partnerId) {
+      logger.error('Mastercard credentials not configured or App-Token missing');
+      throw new Error('Mastercard credentials not configured or App-Token missing');
     }
 
-    const redirectUri = encodeURIComponent(process.env.OAUTH_REDIRECT_URI || 'http://localhost:3001/api/consents/callback');
-    const scope = encodeURIComponent(Object.values(CDR_SCOPES).join(' '));
-    
-    return `${this.baseUrl}/oauth2/authorize?` +
-           `client_id=${this.clientId}&` +
-           `partner_id=${this.partnerId}&` +
-           `redirect_uri=${redirectUri}&` +
-           `response_type=code&` +
-           `scope=${scope}&` +
-           `state=${state}`;
+    // For development, use a public webhook service if no webhook URL is provided
+    const finalWebhookUrl = webhookUrl || process.env.WEBHOOK_URL || 'https://webhook.site/unique-id-12345';
+
+    try {
+      const response = await this.client.post('/connect/v2/generate', {
+        partnerId: this.partnerId,
+        customerId: customerId,
+        webhook: finalWebhookUrl
+      }, {
+        headers: {
+          'App-Token': this.appToken,
+          'App-Key': this.clientId
+        }
+      });
+
+      if (response.data && response.data.link) {
+        logger.info('Successfully generated Connect URL');
+        return response.data.link;
+      }
+      
+      throw new Error('No Connect URL received from API');
+    } catch (error: any) {
+      logger.error('Failed to generate Connect URL:', error);
+      
+      // For development, provide more helpful error messages
+      if (error.response?.data?.message?.includes('webhook')) {
+        throw new Error('Webhook URL must be publicly accessible. For development, use a service like webhook.site or ngrok to expose your local server.');
+      }
+      
+      throw new Error('Failed to generate Connect URL for bank connection');
+    }
+  }
+
+  /**
+   * Generate OAuth URL for testing (fallback - deprecated)
+   * @deprecated Use generateConnectUrl instead
+   */
+  generateOAuthUrl(state: string): string {
+    logger.warn('generateOAuthUrl is deprecated. Use generateConnectUrl instead.');
+    throw new Error('OAuth2 flow is not supported. Please use the Connect flow with generateConnectUrl method.');
   }
 }
 

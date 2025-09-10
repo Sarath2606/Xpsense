@@ -6,15 +6,8 @@ const LoginScreen = ({ onSignIn, loading, error }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="max-w-sm w-full">
-        {/* Logo and Title */}
+        {/* Title */}
         <div className="text-center mb-8">
-          <div className="flex justify-center mb-6">
-            <img 
-              src="/logo.svg" 
-              alt="Xpenses Logo" 
-              className="h-20 w-auto object-contain"
-            />
-          </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Xpenses</h1>
           <p className="text-gray-600">Your smart financial companion</p>
         </div>

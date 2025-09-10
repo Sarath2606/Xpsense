@@ -65,32 +65,59 @@ export class ConsentController {
 
         const redirectUri = process.env.OAUTH_REDIRECT_URI || 'http://localhost:3001/api/consents/callback';
 
-        // Try creating a consent session with Mastercard; if it fails (e.g., sandbox 503),
-        // fall back to generating an OAuth URL directly so users can still proceed.
+        // Generate Connect URL for bank connection using Mastercard Connect flow
         let redirectUrl: string;
         let consentRef: string;
 
         try {
-          // Test connectivity first using a public endpoint
-          const isConnected = await mastercardApiService.testConnectivity();
-          if (!isConnected) {
-            throw new Error('Mastercard sandbox is currently unavailable. Please try again later.');
+          // Ensure we have an App-Token first
+          await mastercardApiService.getAppToken();
+
+          // Get user details for customer creation
+          let user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { email: true, name: true }
+          });
+
+          // If user doesn't exist, create a test user for development
+          if (!user) {
+            logger.warn(`User ${userId} not found in database, creating test user`);
+            user = await prisma.user.create({
+              data: {
+                id: userId,
+                email: `test-${userId}@example.com`,
+                name: 'Test User',
+                firebaseUid: userId
+              },
+              select: { email: true, name: true }
+            });
+            logger.info(`Created test user: ${user.email}`);
           }
 
-          const consentSession = await mastercardApiService.createConsentSession(
-            scopes,
-            redirectUri,
-            state,
-            nonce,
-            durationDays
+          // Create a test customer in Mastercard system
+          const customerId = await mastercardApiService.createTestCustomer(
+            userId,
+            user.email,
+            user.name || 'Test User'
           );
-          redirectUrl = consentSession.redirectUrl;
-          consentRef = consentSession.consentId;
-        } catch (sessionError) {
-          logger.warn('Consent session creation failed, using OAuth authorize URL fallback:', sessionError);
-          redirectUrl = mastercardApiService.generateOAuthUrl(state);
-          // Use state as a temporary reference so we have a linkage candidate
-          consentRef = state;
+
+          // Generate Connect URL using the new Connect flow
+          const webhookUrl = process.env.WEBHOOK_URL || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/webhooks/mastercard`;
+          
+          redirectUrl = await mastercardApiService.generateConnectUrl(customerId, webhookUrl);
+          consentRef = state; // Use state as consent reference
+          
+          logger.info('Successfully generated Connect URL for bank connection');
+        } catch (connectError) {
+          const errorMessage = connectError instanceof Error ? connectError.message : String(connectError);
+          const errorStack = connectError instanceof Error ? connectError.stack : undefined;
+          
+          logger.error('Failed to generate Connect URL:', {
+            error: errorMessage,
+            stack: errorStack,
+            userId: userId
+          });
+          throw new Error(`Unable to generate bank connection URL: ${errorMessage}`);
         }
 
         // Store consent in database (pending until callback)

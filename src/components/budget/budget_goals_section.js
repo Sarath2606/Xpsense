@@ -1,6 +1,6 @@
 import React from 'react';
 
-const BudgetGoalsSection = ({ budgetGoals, onUpdateGoal }) => {
+const BudgetGoalsSection = ({ budgetGoals, onUpdateGoal, onGoalClick }) => {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { 
@@ -34,9 +34,70 @@ const BudgetGoalsSection = ({ budgetGoals, onUpdateGoal }) => {
       return '📱';
     } else if (name.includes('laptop') || name.includes('computer')) {
       return '💻';
+    } else if (name.includes('emergency') || name.includes('savings')) {
+      return '🛡️';
     } else {
       return '💰';
     }
+  };
+
+  const getGoalColor = (goalName) => {
+    const name = goalName.toLowerCase();
+    if (name.includes('vacation') || name.includes('travel')) {
+      return 'bg-blue-100 text-blue-600';
+    } else if (name.includes('car') || name.includes('vehicle')) {
+      return 'bg-green-100 text-green-600';
+    } else if (name.includes('house') || name.includes('home')) {
+      return 'bg-purple-100 text-purple-600';
+    } else if (name.includes('phone') || name.includes('mobile')) {
+      return 'bg-pink-100 text-pink-600';
+    } else if (name.includes('laptop') || name.includes('computer')) {
+      return 'bg-indigo-100 text-indigo-600';
+    } else if (name.includes('emergency') || name.includes('savings')) {
+      return 'bg-orange-100 text-orange-600';
+    } else {
+      return 'bg-gray-100 text-gray-600';
+    }
+  };
+
+  const CircularProgress = ({ progress, size = 60, strokeWidth = 4, color = '#3B82F6' }) => {
+    const radius = (size - strokeWidth) / 2;
+    const circumference = radius * 2 * Math.PI;
+    const strokeDasharray = circumference;
+    const strokeDashoffset = circumference - (progress / 100) * circumference;
+
+    return (
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg className="transform -rotate-90" width={size} height={size}>
+          {/* Background circle */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke="#E5E7EB"
+            strokeWidth={strokeWidth}
+            fill="transparent"
+          />
+          {/* Progress circle */}
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={color}
+            strokeWidth={strokeWidth}
+            fill="transparent"
+            strokeDasharray={strokeDasharray}
+            strokeDashoffset={strokeDashoffset}
+            strokeLinecap="round"
+            className="transition-all duration-500 ease-in-out"
+          />
+        </svg>
+        {/* Percentage text */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-sm font-bold text-gray-900">{Math.round(progress)}%</span>
+        </div>
+      </div>
+    );
   };
 
   if (!budgetGoals || budgetGoals.length === 0) {
@@ -72,71 +133,61 @@ const BudgetGoalsSection = ({ budgetGoals, onUpdateGoal }) => {
           const progress = calculateProgress(goal);
           const daysRemaining = getDaysRemaining(goal.endDate);
           const isOverdue = daysRemaining === 0;
+          const goalColor = getGoalColor(goal.name);
           
           return (
             <div 
               key={goal.id} 
-              className={`rounded-xl p-4 border transition-colors ${
+              className={`rounded-xl p-4 border transition-colors cursor-pointer ${
                 isOverdue 
                   ? 'bg-red-50 border-red-200' 
                   : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
               }`}
+              onClick={() => onGoalClick && onGoalClick(goal)}
             >
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3 flex-1">
+              <div className="flex items-center justify-between">
+                {/* Left Section - Icon and Goal Details */}
+                <div className="flex items-center space-x-3 flex-1">
                   {/* Goal Icon */}
-                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-lg">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg ${goalColor}`}>
                     {getGoalIcon(goal.name)}
                   </div>
                   
                   {/* Goal Details */}
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <h4 className="font-semibold text-gray-900 text-sm truncate">
-                        {goal.name}
-                      </h4>
-                      <span className={`text-sm font-medium ${
-                        isOverdue ? 'text-red-600' : 'text-gray-600'
-                      }`}>
-                        ${goal.savedAmount.toFixed(2)} / ${parseFloat(goal.targetAmount).toFixed(2)}
-                      </span>
-                    </div>
-                    
-                    {/* Progress Bar */}
-                    <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
-                      <div 
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          isOverdue ? 'bg-red-500' : 'bg-blue-500'
-                        }`}
-                        style={{ width: `${progress}%` }}
-                      ></div>
-                    </div>
-                    
-                    {/* Goal Info */}
-                    <div className="flex items-center justify-between text-xs text-gray-500">
-                      <span>
-                        {goal.frequency} • ${parseFloat(goal.allocatedAmount).toFixed(2)} per {goal.frequency.slice(0, -2)}
-                      </span>
-                      <span className={isOverdue ? 'text-red-500' : ''}>
-                        {isOverdue ? 'Overdue' : `${daysRemaining} days left`}
-                      </span>
-                    </div>
-                    
-                    {/* Target Date */}
-                    <div className="text-xs text-gray-400 mt-1">
-                      Target: {formatDate(goal.endDate)}
+                    <h4 className="font-semibold text-gray-900 text-sm truncate mb-1">
+                      {goal.name}
+                    </h4>
+                    <div className="text-xs text-gray-500">
+                      ${goal.savedAmount.toFixed(2)} / ${parseFloat(goal.targetAmount).toFixed(2)}
                     </div>
                   </div>
                 </div>
+                
+                {/* Right Section - Circular Progress */}
+                <div className="ml-4">
+                  <CircularProgress 
+                    progress={progress} 
+                    size={60} 
+                    strokeWidth={4}
+                    color={isOverdue ? '#EF4444' : '#3B82F6'}
+                  />
+                </div>
               </div>
               
-              {/* Progress Percentage */}
-              <div className="mt-2 text-right">
-                <span className={`text-sm font-medium ${
-                  isOverdue ? 'text-red-600' : 'text-blue-600'
-                }`}>
-                  {progress.toFixed(1)}% complete
-                </span>
+              {/* Additional Info */}
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>
+                    {goal.frequency} • ${parseFloat(goal.allocatedAmount).toFixed(2)} per {goal.frequency.slice(0, -2)}
+                  </span>
+                  <span className={isOverdue ? 'text-red-500' : ''}>
+                    {isOverdue ? 'Overdue' : `${daysRemaining} days left`}
+                  </span>
+                </div>
+                <div className="text-xs text-gray-400 mt-1">
+                  Target: {formatDate(goal.endDate)}
+                </div>
               </div>
             </div>
           );

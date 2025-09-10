@@ -14,10 +14,16 @@
     "db:studio": "prisma studio",
     "db:seed": "node scripts/migrate-database.js",
     "db:reset": "prisma migrate reset && npm run db:seed",
+    "db:cleanup": "node cleanup-test-data.js",
+    "db:reset-all": "node reset-database.js",
+    "db:check": "node check-accounts.js",
     "test:mastercard": "jest --testPathPattern=mastercard",
     "test:consent": "jest --testPathPattern=consent",
     "lint": "eslint src/**/*.ts",
-    "lint:fix": "eslint src/**/*.ts --fix"
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "dev:rate-limit-fix": "node restart-with-new-rate-limits.js",
+    "dev:firebase-auth": "node restart-with-firebase-auth.js",
+    "setup:email-invitations": "node setup-email-invitations.js"
   },
   "keywords": [
     "expenses",
@@ -29,6 +35,7 @@
   "license": "MIT",
   "dependencies": {
     "@prisma/client": "^5.7.0",
+    "@types/nodemailer": "^7.0.1",
     "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.4",
@@ -42,7 +49,9 @@
     "joi": "^17.11.0",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
-    "prisma": "^5.7.0"
+    "nodemailer": "^7.0.6",
+    "prisma": "^5.7.0",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

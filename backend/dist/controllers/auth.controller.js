@@ -161,11 +161,13 @@ class AuthController {
                     };
                     logger_1.logger.info('Using mock user for OAuth testing due to database error');
                 }
-                const oauthUrl = await mastercard_api_service_1.mastercardApiService.generateOAuthUrl(dbUser.id);
+                await mastercard_api_service_1.mastercardApiService.getAppToken();
+                const customerId = await mastercard_api_service_1.mastercardApiService.createTestCustomer(dbUser.id, dbUser.email, dbUser.name || 'Test User');
+                const connectUrl = await mastercard_api_service_1.mastercardApiService.generateConnectUrl(customerId);
                 logger_1.logger.info(`OAuth initiated for user ${dbUser.id}`);
                 return res.json({
-                    message: 'OAuth URL generated successfully',
-                    oauthUrl
+                    message: 'Connect URL generated successfully',
+                    connectUrl
                 });
             }
             catch (error) {

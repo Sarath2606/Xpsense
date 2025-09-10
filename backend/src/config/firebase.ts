@@ -9,6 +9,12 @@ const initializeFirebase = () => {
       return admin.apps[0];
     }
 
+    // For development, check if Firebase credentials are available
+    if (!process.env.FIREBASE_CLIENT_EMAIL || !process.env.FIREBASE_PRIVATE_KEY) {
+      logger.warn('Firebase credentials not found in environment variables. Skipping Firebase initialization for development.');
+      return null;
+    }
+
     // For development, we'll use a service account key
     // In production, you should use environment variables or Google Cloud credentials
     const serviceAccount = {
@@ -34,7 +40,8 @@ const initializeFirebase = () => {
     return app;
   } catch (error) {
     logger.error('Failed to initialize Firebase Admin SDK:', error);
-    throw error;
+    logger.warn('Continuing without Firebase for development...');
+    return null;
   }
 };
 
@@ -42,7 +49,8 @@ const initializeFirebase = () => {
 export const getFirebaseAuth = () => {
   const app = initializeFirebase();
   if (!app) {
-    throw new Error('Failed to initialize Firebase app');
+    logger.warn('Firebase not initialized - returning null auth instance');
+    return null;
   }
   return admin.auth(app);
 };
@@ -51,6 +59,17 @@ export const getFirebaseAuth = () => {
 export const verifyFirebaseToken = async (idToken: string) => {
   try {
     const auth = getFirebaseAuth();
+    if (!auth) {
+      logger.warn('Firebase auth not available - skipping token verification for development');
+      // For development without Firebase, return a mock user
+      return {
+        uid: 'dev-user-id',
+        email: 'dev@example.com',
+        name: 'Development User',
+        picture: null
+      };
+    }
+    
     const decodedToken = await auth.verifyIdToken(idToken);
     
     logger.info(`Firebase token verified for user: ${decodedToken.email}`);

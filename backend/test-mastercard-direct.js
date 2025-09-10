@@ -40,11 +40,12 @@ async function testMastercardAPI() {
     // Test 2: Try to get institutions (this might require authentication)
     console.log('🏦 Testing: Get Institutions');
     try {
-      const response = await axios.get(`${baseUrl}/institutions`, {
+      const response = await axios.get(`${baseUrl}/institution/v2/institutions`, {
         timeout: 10000,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'App-Key': clientId
         }
       });
       console.log('✅ Success! Institutions endpoint is accessible');
@@ -108,11 +109,12 @@ async function testMastercardAPI() {
         partner_id: partnerId
       };
 
-      const response = await axios.post(`${baseUrl}/consents`, consentData, {
+      const response = await axios.post(`${baseUrl}/aggregation/v1/consents`, consentData, {
         timeout: 10000,
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          'App-Key': clientId
         }
       });
       console.log('✅ Consent creation endpoint is accessible');
@@ -131,12 +133,13 @@ async function testMastercardAPI() {
     console.log('🔑 Testing: Basic Authentication');
     try {
       const authHeader = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-      const response = await axios.get(`${baseUrl}/institutions`, {
+      const response = await axios.get(`${baseUrl}/institution/v2/institutions`, {
         timeout: 10000,
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'Authorization': `Basic ${authHeader}`
+          'Authorization': `Basic ${authHeader}`,
+          'App-Key': clientId
         }
       });
       console.log('✅ Basic authentication successful');

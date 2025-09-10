@@ -238,14 +238,23 @@ export class AuthController {
         logger.info('Using mock user for OAuth testing due to database error');
       }
 
-      // Generate OAuth URL with user ID in state
-      const oauthUrl = await mastercardApiService.generateOAuthUrl(dbUser.id);
+      // Ensure we have an App-Token first
+      await mastercardApiService.getAppToken();
+
+      // Create a test customer and generate Connect URL for bank connection
+      const customerId = await mastercardApiService.createTestCustomer(
+        dbUser.id,
+        dbUser.email,
+        dbUser.name || 'Test User'
+      );
+      
+      const connectUrl = await mastercardApiService.generateConnectUrl(customerId);
 
       logger.info(`OAuth initiated for user ${dbUser.id}`);
 
       return res.json({
-        message: 'OAuth URL generated successfully',
-        oauthUrl
+        message: 'Connect URL generated successfully',
+        connectUrl
       });
     } catch (error) {
       logger.error(`Failed to initiate OAuth:`, error);

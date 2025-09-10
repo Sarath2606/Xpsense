@@ -57,8 +57,16 @@ const authenticateToken = (req, res, next) => {
             });
         }
         const decoded = jwt.verify(token, JWT_SECRET);
+        const userId = decoded.id || decoded.userId;
+        if (!userId) {
+            return next({
+                name: 'AuthError',
+                message: 'Invalid token: missing user ID',
+                statusCode: 401,
+            });
+        }
         const user = {
-            id: decoded.id,
+            id: userId,
             email: decoded.email,
             name: decoded.name || undefined,
         };

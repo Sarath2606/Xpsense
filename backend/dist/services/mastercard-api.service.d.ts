@@ -63,6 +63,7 @@ export declare class MastercardApiService {
     private clientId;
     private clientSecret;
     private partnerId;
+    private appToken;
     private isSandboxDown;
     private lastHealthCheck;
     private readonly HEALTH_CHECK_INTERVAL;
@@ -76,6 +77,7 @@ export declare class MastercardApiService {
         lastCheck: number;
         estimatedRecovery?: string;
     };
+    getAppToken(): Promise<string>;
     testConnectivity(): Promise<boolean>;
     createConsentSession(scopes: string[], redirectUri: string, state: string, nonce: string, durationDays?: number): Promise<MastercardConsentSession>;
     exchangeCodeForToken(code: string, redirectUri: string): Promise<MastercardTokenResponse>;
@@ -94,6 +96,8 @@ export declare class MastercardApiService {
         logoUrl?: string;
     }>>;
     validateWebhookSignature(payload: string, signature: string): boolean;
+    createTestCustomer(userId: string, userEmail: string, userName: string): Promise<string>;
+    generateConnectUrl(customerId: string, webhookUrl?: string): Promise<string>;
     generateOAuthUrl(state: string): string;
 }
 export declare const mastercardApiService: MastercardApiService;

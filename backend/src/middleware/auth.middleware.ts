@@ -39,14 +39,25 @@ export const authenticateToken = (
     }
 
     const decoded = jwt.verify(token, JWT_SECRET) as {
-      id: string;
+      id?: string;
+      userId?: string;
       email: string;
       name?: string | null;
     };
 
+    // Validate that we have a user ID
+    const userId = decoded.id || decoded.userId;
+    if (!userId) {
+      return next({
+        name: 'AuthError',
+        message: 'Invalid token: missing user ID',
+        statusCode: 401,
+      } as AppError);
+    }
+
     // enforce name?: string (no null)
     const user = {
-      id: decoded.id,
+      id: userId,
       email: decoded.email,
       name: decoded.name || undefined,
     };

@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,215 +8,183 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  name        String?
-  firebaseUid String?  @unique // Firebase UID for authentication
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  consents           Consent[]
-  connectedAccounts  ConnectedAccount[]
-  transactions       Transaction[]
-  budgets            Budget[]
-  auditLogs          AuditLog[]
+  id                        String                  @id @default(cuid())
+  email                     String                  @unique
+  name                      String?
+  firebaseUid               String?                 @unique
+  createdAt                 DateTime                @default(now())
+  updatedAt                 DateTime                @updatedAt
+  auditLogs                 AuditLog[]
+  budgets                   Budget[]
+  connectedAccounts         ConnectedAccount[]
+  consents                  Consent[]
+  splitwiseActivityLogs     SplitwiseActivityLog[]
+  splitwiseExpenseShares    SplitwiseExpenseShare[]
+  SplitwiseExpense          SplitwiseExpense[]
+  splitwiseExpenses         SplitwiseExpense[]      @relation("SplitwiseExpensePayer")
+  splitwiseGroupMemberships SplitwiseGroupMember[]
+  SplitwiseGroup            SplitwiseGroup[]
+  splitwiseInvites          SplitwiseInvite[]       @relation("SplitwiseInviteInviter")
+  splitwiseSettlements      SplitwiseSettlement[]   @relation("SplitwiseSettlementFrom")
+  splitwiseSettlementsTo    SplitwiseSettlement[]   @relation("SplitwiseSettlementTo")
+  transactions              Transaction[]
 
   @@map("users")
 }
 
-// CDR-Compliant Consent Management
 model Consent {
-  id             String   @id @default(cuid())
-  userId         String
-  institutionId  String
-  status         ConsentStatus @default(PENDING)
-  scopes         String   // space-separated scopes
-  consentRef     String   @unique // Mastercard consent/session ID
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  institution Institution @relation(fields: [institutionId], references: [id])
-  tokens      Token?
-  accounts    ConnectedAccount[]
+  id            String             @id @default(cuid())
+  userId        String
+  institutionId String
+  status        ConsentStatus      @default(PENDING)
+  scopes        String
+  consentRef    String             @unique
+  expiresAt     DateTime
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  accounts      ConnectedAccount[]
+  institution   Institution        @relation(fields: [institutionId], references: [id])
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokens        Token?
 
   @@map("consents")
 }
 
-enum ConsentStatus {
-  PENDING
-  ACTIVE
-  REVOKED
-  EXPIRED
-}
-
-// OAuth Token Management
 model Token {
-  id            String   @id @default(cuid())
-  consentId     String   @unique
-  accessToken   String   // Encrypted
-  refreshToken  String?  // Encrypted
-  tokenType     String
-  scope         String
-  expiresAt     DateTime
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  consent Consent @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  consentId    String   @unique
+  accessToken  String
+  refreshToken String?
+  tokenType    String
+  scope        String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  consent      Consent  @relation(fields: [consentId], references: [id], onDelete: Cascade)
 
   @@map("tokens")
 }
 
-// Financial Institution Registry
 model Institution {
-  id          String   @id @default(cuid())
-  name        String
-  code        String   @unique // e.g., "AUS-CDR-Mastercard"
-  logoUrl     String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  consents    Consent[]
+  id        String    @id @default(cuid())
+  name      String
+  code      String    @unique
+  logoUrl   String?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  consents  Consent[]
 
   @@map("institutions")
 }
 
 model ConnectedAccount {
-  id                String   @id @default(cuid())
-  userId            String
-  consentId         String
-  accountId         String   // Mastercard account ID
-  accountName       String
-  accountType       String   // CHECKING, SAVINGS, CREDIT, etc.
-  bankName          String
-  accountNumber     String?  // Masked account number
-  balance           Decimal  @default(0)
-  availableBalance  Decimal? // Available balance if different
-  currency          String   @default("AUD")
-  status            AccountStatus @default(ACTIVE)
-  lastSyncAt        DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  consent      Consent       @relation(fields: [consentId], references: [id], onDelete: Cascade)
-  transactions Transaction[]
-  balances     Balance[]
+  id               String        @id @default(cuid())
+  userId           String
+  consentId        String
+  accountId        String
+  accountName      String
+  accountType      String
+  bankName         String
+  accountNumber    String?
+  balance          Decimal       @default(0)
+  availableBalance Decimal?
+  currency         String        @default("AUD")
+  status           AccountStatus @default(ACTIVE)
+  lastSyncAt       DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  balances         Balance[]
+  consent          Consent       @relation(fields: [consentId], references: [id], onDelete: Cascade)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions     Transaction[]
 
   @@unique([userId, accountId])
   @@map("connected_accounts")
 }
 
-enum AccountStatus {
-  ACTIVE
-  INACTIVE
-  CLOSED
-}
-
-// Balance History for CDR Compliance
 model Balance {
-  id         String   @id @default(cuid())
-  accountId  String
-  asAt       DateTime
-  current    Decimal  @db.Decimal(20,4)
-  available  Decimal? @db.Decimal(20,4)
-  creditLimit Decimal? @db.Decimal(20,4)
-  currency   String
-
-  account ConnectedAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id          String           @id @default(cuid())
+  accountId   String
+  asAt        DateTime
+  current     Decimal          @db.Decimal(20, 4)
+  available   Decimal?         @db.Decimal(20, 4)
+  creditLimit Decimal?         @db.Decimal(20, 4)
+  currency    String
+  account     ConnectedAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 
   @@index([accountId, asAt])
   @@map("balances")
 }
 
 model Transaction {
-  id                String   @id @default(cuid())
-  userId            String
+  id                 String            @id @default(cuid())
+  userId             String
   connectedAccountId String?
-  transactionId     String?  // Mastercard transaction ID
-  description       String
-  amount            Decimal  @db.Decimal(20,4)
-  currency          String   @default("AUD")
-  category          String?
-  transactionType   String   // DEBIT, CREDIT
-  date              DateTime
-  isImported        Boolean  @default(false) // Whether imported from bank or manual
-  metadata          Json?    // Additional transaction data
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  connectedAccount ConnectedAccount? @relation(fields: [connectedAccountId], references: [id])
+  transactionId      String?
+  description        String
+  amount             Decimal           @db.Decimal(20, 4)
+  currency           String            @default("AUD")
+  category           String?
+  transactionType    String
+  date               DateTime
+  isImported         Boolean           @default(false)
+  metadata           Json?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  connectedAccount   ConnectedAccount? @relation(fields: [connectedAccountId], references: [id])
+  user               User              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([connectedAccountId, date])
   @@map("transactions")
 }
 
 model Budget {
-  id          String   @id @default(cuid())
-  userId      String
-  name        String
-  amount      Decimal
-  spent       Decimal  @default(0)
-  period      String   // MONTHLY, YEARLY
-  category    String?
-  startDate   DateTime
-  endDate     DateTime?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(cuid())
+  userId    String
+  name      String
+  amount    Decimal
+  spent     Decimal   @default(0)
+  period    String
+  category  String?
+  startDate DateTime
+  endDate   DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("budgets")
 }
 
-// CDR Audit Logging
 model AuditLog {
   id        String   @id @default(cuid())
   userId    String?
-  action    String   // CONSENT_START, TOKEN_EXCHANGE, FETCH_ACCOUNTS, etc
+  action    String
   details   Json?
   ipAddress String?
   userAgent String?
   createdAt DateTime @default(now())
-
-  user User? @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
 
   @@index([userId, createdAt])
   @@map("audit_logs")
 }
 
-// Background Job Management
 model Job {
-  id        String   @id @default(cuid())
-  name      String
-  payload   Json?
-  runAt     DateTime
-  status    JobStatus @default(PENDING)
-  error     String?
-  attempts  Int      @default(0)
-  maxAttempts Int    @default(3)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String    @id @default(cuid())
+  name        String
+  payload     Json?
+  runAt       DateTime
+  status      JobStatus @default(PENDING)
+  error       String?
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@index([status, runAt])
   @@map("jobs")
-}
-
-enum JobStatus {
-  PENDING
-  RUNNING
-  COMPLETED
-  FAILED
-  CANCELLED
 }
 
 model WebhookEvent {
@@ -230,4 +195,140 @@ model WebhookEvent {
   createdAt DateTime @default(now())
 
   @@map("webhook_events")
+}
+
+model SplitwiseGroup {
+  id           String                 @id @default(cuid())
+  name         String
+  description  String?
+  currencyCode String                 @default("AUD")
+  createdBy    String
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
+  activityLogs SplitwiseActivityLog[]
+  expenses     SplitwiseExpense[]
+  members      SplitwiseGroupMember[]
+  creator      User                   @relation(fields: [createdBy], references: [id])
+  invites      SplitwiseInvite[]
+  settlements  SplitwiseSettlement[]
+
+  @@map("splitwise_groups")
+}
+
+model SplitwiseGroupMember {
+  id       String         @id @default(cuid())
+  groupId  String
+  userId   String
+  role     String         @default("member")
+  joinedAt DateTime       @default(now())
+  group    SplitwiseGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("splitwise_group_members")
+}
+
+model SplitwiseExpense {
+  id           String                  @id @default(cuid())
+  groupId      String
+  payerId      String
+  amount       Decimal                 @db.Decimal(14, 2)
+  currencyCode String                  @default("AUD")
+  description  String?
+  splitType    String
+  date         DateTime
+  createdBy    String
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+  activityLogs SplitwiseActivityLog[]
+  shares       SplitwiseExpenseShare[]
+  creator      User                    @relation(fields: [createdBy], references: [id])
+  group        SplitwiseGroup          @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  payer        User                    @relation("SplitwiseExpensePayer", fields: [payerId], references: [id])
+
+  @@map("splitwise_expenses")
+}
+
+model SplitwiseExpenseShare {
+  id          String           @id @default(cuid())
+  expenseId   String
+  userId      String
+  shareAmount Decimal          @db.Decimal(14, 2)
+  shareWeight Decimal?         @db.Decimal(14, 6)
+  expense     SplitwiseExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, userId])
+  @@map("splitwise_expense_shares")
+}
+
+model SplitwiseSettlement {
+  id           String         @id @default(cuid())
+  groupId      String
+  fromUserId   String
+  toUserId     String
+  amount       Decimal        @db.Decimal(14, 2)
+  currencyCode String         @default("AUD")
+  method       String?
+  note         String?
+  createdAt    DateTime       @default(now())
+  fromUser     User           @relation("SplitwiseSettlementFrom", fields: [fromUserId], references: [id])
+  group        SplitwiseGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  toUser       User           @relation("SplitwiseSettlementTo", fields: [toUserId], references: [id])
+
+  @@map("splitwise_settlements")
+}
+
+model SplitwiseActivityLog {
+  id                 String            @id @default(cuid())
+  groupId            String
+  actorId            String?
+  type               String
+  refId              String?
+  snapshotJson       Json?
+  createdAt          DateTime          @default(now())
+  splitwiseExpenseId String?
+  actor              User?             @relation(fields: [actorId], references: [id])
+  group              SplitwiseGroup    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  SplitwiseExpense   SplitwiseExpense? @relation(fields: [splitwiseExpenseId], references: [id])
+
+  @@map("splitwise_activity_logs")
+}
+
+model SplitwiseInvite {
+  id           String         @id @default(cuid())
+  groupId      String
+  email        String
+  token        String         @unique
+  message      String?
+  accepted     Boolean        @default(false)
+  acceptedAt   DateTime?
+  expiresAt    DateTime
+  invitedBy    String
+  createdAt    DateTime       @default(now())
+  group        SplitwiseGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  invitedByUser User          @relation("SplitwiseInviteInviter", fields: [invitedBy], references: [id], onDelete: Cascade)
+
+  @@map("splitwise_invites")
+}
+
+enum ConsentStatus {
+  PENDING
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum AccountStatus {
+  ACTIVE
+  INACTIVE
+  CLOSED
+}
+
+enum JobStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
