@@ -1,6 +1,6 @@
 import { auth } from './firebase';
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://players-snowboard-numeric-certainly.trycloudflare.com/api';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
 class ApiService {
   constructor() {

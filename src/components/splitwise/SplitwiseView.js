@@ -4,6 +4,7 @@ import CreateGroupView from './CreateGroupView';
 import GroupDetailView from './GroupDetailView';
 import AddExpenseForm from './AddExpenseForm';
 import GroupSettingsView from './GroupSettingsView';
+import AcceptInviteModal from './AcceptInviteModal';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 import { useAuth } from '../../hooks/use_auth_hook';
 import { auth } from '../../config/firebase';
@@ -11,6 +12,7 @@ import { auth } from '../../config/firebase';
 const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
   const [groups, setGroups] = useState([]);
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showAcceptInvite, setShowAcceptInvite] = useState(false);
 
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [view, setView] = useState('list'); // 'list', 'detail', 'addExpense', or 'settings'
@@ -219,6 +221,20 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
 
   const handleShowCreateGroup = useCallback(() => {
     setShowCreateGroup(true);
+  }, []);
+
+  const handleShowAcceptInvite = useCallback(() => {
+    setShowAcceptInvite(true);
+  }, []);
+
+  const handleBackFromAcceptInvite = useCallback(() => {
+    setShowAcceptInvite(false);
+  }, []);
+
+  const handleInviteAccepted = useCallback((response) => {
+    // Refresh groups list after accepting invite
+    loadGroups();
+    setShowAcceptInvite(false);
   }, []);
 
   const handleShowAddExpense = useCallback(() => {
@@ -487,6 +503,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
                  onSelectGroup={handleSelectGroup}
                  onCreateGroup={handleShowCreateGroup}
                  onDeleteGroup={handleDeleteGroup}
+                 onJoinGroup={handleShowAcceptInvite}
                  loading={false}
                />
              )}
@@ -518,6 +535,13 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
             </div>
           )}
       </div>
+
+      {/* Accept Invite Modal */}
+      <AcceptInviteModal
+        isOpen={showAcceptInvite}
+        onClose={handleBackFromAcceptInvite}
+        onInviteAccepted={handleInviteAccepted}
+      />
 
     </>
   );

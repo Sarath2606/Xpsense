@@ -1,7 +1,7 @@
 import React from 'react';
 import GroupCard from './GroupCard';
 
-const GroupList = ({ groups, onSelectGroup, onCreateGroup, onDeleteGroup, loading }) => {
+const GroupList = ({ groups, onSelectGroup, onCreateGroup, onDeleteGroup, onJoinGroup, loading }) => {
   const calculateGroupBalance = (group) => {
     // This is a simplified calculation - we'll implement proper balance logic later
     // Add null checks for expenses and members
@@ -43,13 +43,21 @@ const GroupList = ({ groups, onSelectGroup, onCreateGroup, onDeleteGroup, loadin
             </svg>
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No groups yet</h3>
-          <p className="text-gray-600 mb-4">Create your first group to start tracking shared expenses</p>
-          <button
-            onClick={onCreateGroup}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-medium transition-colors"
-          >
-            Create Your First Group
-          </button>
+          <p className="text-gray-600 mb-4">Create your first group or join an existing one</p>
+          <div className="space-y-3">
+            <button
+              onClick={onCreateGroup}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-medium transition-colors"
+            >
+              Create Your First Group
+            </button>
+            <button
+              onClick={onJoinGroup}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-medium transition-colors"
+            >
+              Join Existing Group
+            </button>
+          </div>
         </div>
              ) : (
          <div className="space-y-4">
@@ -64,6 +72,18 @@ const GroupList = ({ groups, onSelectGroup, onCreateGroup, onDeleteGroup, loadin
            ))}
          </div>
        )}
+
+      {/* Join Group Button */}
+      {groups.length > 0 && (
+        <div className="mt-6">
+          <button
+            onClick={onJoinGroup}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-colors"
+          >
+            Join Another Group
+          </button>
+        </div>
+      )}
 
       {/* Quick Tips */}
       {groups.length > 0 && (
