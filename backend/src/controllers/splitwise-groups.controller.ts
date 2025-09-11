@@ -35,22 +35,22 @@ export class SplitwiseGroupsController {
         return res.status(400).json({ error: "Members must be an array" });
       }
 
-      // Ensure the creator exists in our Users table (Railway fresh DBs won't have users yet)
-      const creatorUser = await prisma.user.upsert({
-        where: { email: userEmail },
-        update: {
-          name: userDisplayName,
-          firebaseUid
-        },
-        create: {
-          email: userEmail,
-          name: userDisplayName,
-          firebaseUid
-        }
-      });
-
       // Start a transaction to create group and add all members
       const result = await prisma.$transaction(async (tx) => {
+        // Upsert creator inside the same transaction to satisfy FK reliably
+        const creatorUser = await tx.user.upsert({
+          where: { email: userEmail },
+          update: {
+            name: userDisplayName,
+            firebaseUid
+          },
+          create: {
+            email: userEmail,
+            name: userDisplayName,
+            firebaseUid
+          }
+        });
+
         // Create the group first
         const group = await tx.splitwiseGroup.create({
           data: {
