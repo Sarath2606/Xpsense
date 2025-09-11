@@ -26,6 +26,8 @@ import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 dotenv.config({ path: path.resolve(__dirname, '../env.local') });
 
 const app = express();
+// Respect proxy headers on Railway/Cloudflare so rate-limit & IP work correctly
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 

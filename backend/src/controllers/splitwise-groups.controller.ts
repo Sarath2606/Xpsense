@@ -51,6 +51,9 @@ export class SplitwiseGroupsController {
           }
         });
 
+        // Safety check log
+        console.log('[createGroup] creatorUser.id:', creatorUser.id, 'email:', creatorUser.email);
+
         // Create the group first
         const group = await tx.splitwiseGroup.create({
           data: {
