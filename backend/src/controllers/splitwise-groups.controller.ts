@@ -60,7 +60,8 @@ export class SplitwiseGroupsController {
             name: name.trim(),
             description: description?.trim(),
             currencyCode: currencyCode.toUpperCase(),
-            creator: { connect: { id: creatorUser.id } }
+            // Connect by email to avoid any id mismatch; email is unique
+            creator: { connect: { email: userEmail } }
           }
         });
 
