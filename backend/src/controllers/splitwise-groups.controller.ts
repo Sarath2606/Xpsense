@@ -17,9 +17,11 @@ export class SplitwiseGroupsController {
   static async createGroup(req: FirebaseAuthRequest, res: Response) {
     try {
       const { name, description, currencyCode = "AUD", members = [] } = req.body;
-      const userId = req.user?.id;
+      const userEmail = (req.user?.email || "").toLowerCase();
+      const userDisplayName = req.user?.name || userEmail.split('@')[0] || "Xpenses User";
+      const firebaseUid = (req.user as any)?.uid || (req.user as any)?.firebaseUid || undefined;
 
-      if (!userId) {
+      if (!userEmail) {
         return res.status(401).json({ error: "Authentication required" });
       }
 
@@ -33,6 +35,20 @@ export class SplitwiseGroupsController {
         return res.status(400).json({ error: "Members must be an array" });
       }
 
+      // Ensure the creator exists in our Users table (Railway fresh DBs won't have users yet)
+      const creatorUser = await prisma.user.upsert({
+        where: { email: userEmail },
+        update: {
+          name: userDisplayName,
+          firebaseUid
+        },
+        create: {
+          email: userEmail,
+          name: userDisplayName,
+          firebaseUid
+        }
+      });
+
       // Start a transaction to create group and add all members
       const result = await prisma.$transaction(async (tx) => {
         // Create the group first
@@ -41,7 +57,7 @@ export class SplitwiseGroupsController {
             name: name.trim(),
             description: description?.trim(),
             currencyCode: currencyCode.toUpperCase(),
-            createdBy: userId
+            createdBy: creatorUser.id
           }
         });
 
@@ -49,7 +65,7 @@ export class SplitwiseGroupsController {
         const membersToCreate = [
           {
             groupId: group.id,
-            userId: userId,
+            userId: creatorUser.id,
             role: "admin"
           }
         ];
