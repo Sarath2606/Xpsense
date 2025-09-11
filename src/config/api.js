@@ -1,6 +1,6 @@
 import { auth } from './firebase';
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://competent-genome-knit-cognitive.trycloudflare.com/api';
 
 class ApiService {
   constructor() {
