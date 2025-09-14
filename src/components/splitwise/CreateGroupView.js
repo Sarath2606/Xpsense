@@ -260,7 +260,14 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                   No members added yet. Add at least one member to continue.
                 </div>
               ) : (
-                members.map((member) => (
+                members.map((member) => {
+                  const userName = member.user?.name || member.name || 'Unknown';
+                  const userEmail = member.user?.email || member.email || 'No email';
+                  const displayName = userName === 'Unknown' && userEmail !== 'No email' 
+                    ? userEmail.split('@')[0] 
+                    : userName;
+                  
+                  return (
                   <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center space-x-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -269,19 +276,19 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                         <span className={`font-medium text-sm ${
                           member.role === 'admin' ? 'text-purple-600' : 'text-gray-600'
                         }`}>
-                          {(member.name || '?').charAt(0).toUpperCase()}
+                          {displayName.charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
                         <div className="flex items-center space-x-2">
-                          <span className="font-medium text-sm">{member.name}</span>
+                          <span className="font-medium text-sm">{displayName}</span>
                           {member.role === 'admin' && (
                             <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
                               Admin
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-500">{member.email}</div>
+                        <div className="text-xs text-gray-500">{userEmail}</div>
                       </div>
                     </div>
                     {member.id !== 'current_user' && (
@@ -297,7 +304,8 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                       </button>
                     )}
                   </div>
-                ))
+                  );
+                })
               )}
             </div>
 

@@ -267,38 +267,6 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
           </div>
         </div>
 
-      {/* Members List */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-4">
-        <div className="divide-y divide-gray-200">
-          {(group.members || []).map((member) => (
-            <div key={member.id} className="px-4 py-4 flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-                  <span className="text-sm font-medium text-purple-700">
-                    {(member.name || member.email || '?').charAt(0).toUpperCase()}
-                  </span>
-                </div>
-                <div>
-                  <div className="font-medium text-gray-900">{member.name || 'Unknown'}</div>
-                  <div className="text-sm text-gray-500">{member.email || 'No email'}</div>
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  member.role === 'admin' 
-                    ? 'bg-purple-100 text-purple-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {member.role || 'member'}
-                </span>
-                {member.id === 'current_user' && (
-                  <span className="text-xs text-gray-400">(You)</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
 
                            {/* Detailed Balance Breakdown - Two Sections */}
         <div className="mb-4 space-y-3">

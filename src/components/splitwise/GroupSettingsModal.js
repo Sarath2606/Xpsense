@@ -406,7 +406,14 @@ const GroupSettingsModal = ({ isOpen, onClose, group, currentUser, onGroupUpdate
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-3">Group Members</h3>
                 <div className="space-y-2">
-                  {group.members?.map((member) => (
+                  {group.members?.map((member) => {
+                    const userName = member.user?.name || member.name || 'Unknown';
+                    const userEmail = member.user?.email || member.email || 'No email';
+                    const displayName = userName === 'Unknown' && userEmail !== 'No email' 
+                      ? userEmail.split('@')[0] 
+                      : userName;
+                    
+                    return (
                     <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center space-x-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
@@ -415,22 +422,22 @@ const GroupSettingsModal = ({ isOpen, onClose, group, currentUser, onGroupUpdate
                           <span className={`font-medium text-sm ${
                             member.role === 'admin' ? 'text-purple-600' : 'text-gray-600'
                           }`}>
-                            {(member.name || '?').charAt(0).toUpperCase()}
+                            {displayName.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
                           <div className="flex items-center space-x-2">
-                            <span className="font-medium text-sm">{member.name}</span>
+                            <span className="font-medium text-sm">{displayName}</span>
                             {member.role === 'admin' && (
                               <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
                                 Admin
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-gray-500">{member.email}</div>
+                          <div className="text-xs text-gray-500">{userEmail}</div>
                         </div>
                       </div>
-                      {isAdmin && member.id !== 'current_user' && member.email !== currentUser?.email && (
+                      {isAdmin && member.id !== 'current_user' && userEmail !== currentUser?.email && (
                         <button
                           onClick={() => handleRemoveMember(member.id)}
                           className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
@@ -442,7 +449,8 @@ const GroupSettingsModal = ({ isOpen, onClose, group, currentUser, onGroupUpdate
                         </button>
                       )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
