@@ -7,8 +7,10 @@ class SplitwiseGroupsController {
     static async createGroup(req, res) {
         try {
             const { name, description, currencyCode = "AUD", members = [] } = req.body;
-            const userId = req.user?.id;
-            if (!userId) {
+            const userEmail = (req.user?.email || "").toLowerCase();
+            const userDisplayName = req.user?.name || userEmail.split('@')[0] || "Xpenses User";
+            const firebaseUid = req.user?.uid || req.user?.firebaseUid || undefined;
+            if (!userEmail) {
                 return res.status(401).json({ error: "Authentication required" });
             }
             if (!name || name.trim().length === 0) {
@@ -18,18 +20,31 @@ class SplitwiseGroupsController {
                 return res.status(400).json({ error: "Members must be an array" });
             }
             const result = await prisma.$transaction(async (tx) => {
+                const creatorUser = await tx.user.upsert({
+                    where: { email: userEmail },
+                    update: {
+                        name: userDisplayName,
+                        firebaseUid
+                    },
+                    create: {
+                        email: userEmail,
+                        name: userDisplayName,
+                        firebaseUid
+                    }
+                });
+                console.log('[createGroup] creatorUser.id:', creatorUser.id, 'email:', creatorUser.email);
                 const group = await tx.splitwiseGroup.create({
                     data: {
                         name: name.trim(),
                         description: description?.trim(),
                         currencyCode: currencyCode.toUpperCase(),
-                        createdBy: userId
+                        createdBy: creatorUser.id
                     }
                 });
                 const membersToCreate = [
                     {
                         groupId: group.id,
-                        userId: userId,
+                        userId: creatorUser.id,
                         role: "admin"
                     }
                 ];

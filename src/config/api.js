@@ -1,6 +1,9 @@
 import { auth } from './firebase';
 
-export const API_BASE_URL = process.env.REACT_APP_API_URL || 'https://competent-genome-knit-cognitive.trycloudflare.com/api';
+export const API_BASE_URL = process.env.REACT_APP_API_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? 'https://xpsense-production.up.railway.app/api'
+    : 'http://localhost:3001/api');
 
 class ApiService {
   constructor() {

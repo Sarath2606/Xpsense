@@ -34,7 +34,7 @@
   "author": "Xpenses Team",
   "license": "MIT",
   "dependencies": {
-    "@prisma/client": "^5.7.0",
+    "@prisma/client": "^6.16.1",
     "@types/nodemailer": "^7.0.1",
     "axios": "^1.6.0",
     "bcryptjs": "^2.4.3",

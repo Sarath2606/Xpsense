@@ -54,14 +54,13 @@ export class SplitwiseGroupsController {
         // Safety check log
         console.log('[createGroup] creatorUser.id:', creatorUser.id, 'email:', creatorUser.email);
 
-        // Create the group first (associate creator via relation to avoid FK race)
+        // Create the group first (use the created user ID directly)
         const group = await tx.splitwiseGroup.create({
           data: {
             name: name.trim(),
             description: description?.trim(),
             currencyCode: currencyCode.toUpperCase(),
-            // Connect by email to avoid any id mismatch; email is unique
-            creator: { connect: { email: userEmail } }
+            createdBy: creatorUser.id
           }
         });
 

@@ -24,6 +24,7 @@ const firebase_1 = require("./config/firebase");
 const error_middleware_1 = require("./middleware/error.middleware");
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../env.local') });
 const app = (0, express_1.default)();
+app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const server = http_1.default.createServer(app);
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003')
