@@ -3,17 +3,32 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.optionalFirebaseAuth = exports.authenticateFirebaseToken = void 0;
 const firebase_1 = require("../config/firebase");
 const logger_1 = require("../utils/logger");
-const authenticateFirebaseToken = (req, res, next) => {
+const client_1 = require("@prisma/client");
+const prisma = new client_1.PrismaClient();
+const authenticateFirebaseToken = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
         const token = authHeader && authHeader.split(' ')[1];
         if (!token) {
             if (process.env.NODE_ENV === 'development') {
+                const userEmail = 'smilysarath26@gmail.com';
+                const dbUser = await prisma.user.upsert({
+                    where: { email: userEmail },
+                    update: {
+                        name: 'Development User',
+                        firebaseUid: 'dev-firebase-uid'
+                    },
+                    create: {
+                        email: userEmail,
+                        name: 'Development User',
+                        firebaseUid: 'dev-firebase-uid'
+                    }
+                });
                 req.user = {
-                    id: 'cmefafb0j0000j8dmmu9tlkmp',
-                    email: 'smilysarath26@gmail.com',
-                    name: 'Development User',
-                    firebaseUid: 'dev-firebase-uid'
+                    id: dbUser.id,
+                    email: dbUser.email,
+                    name: dbUser.name || undefined,
+                    firebaseUid: dbUser.firebaseUid || 'dev-firebase-uid'
                 };
                 logger_1.logger.info(`Development authentication successful for user: ${req.user.email} (no token provided)`);
                 return next();
@@ -25,23 +40,50 @@ const authenticateFirebaseToken = (req, res, next) => {
             });
         }
         if (process.env.NODE_ENV === 'development') {
+            const userEmail = 'smilysarath26@gmail.com';
+            const dbUser = await prisma.user.upsert({
+                where: { email: userEmail },
+                update: {
+                    name: 'Development User',
+                    firebaseUid: 'dev-firebase-uid'
+                },
+                create: {
+                    email: userEmail,
+                    name: 'Development User',
+                    firebaseUid: 'dev-firebase-uid'
+                }
+            });
             req.user = {
-                id: 'cmefafb0j0000j8dmmu9tlkmp',
-                email: 'smilysarath26@gmail.com',
-                name: 'Development User',
-                firebaseUid: 'dev-firebase-uid'
+                id: dbUser.id,
+                email: dbUser.email,
+                name: dbUser.name || undefined,
+                firebaseUid: dbUser.firebaseUid || 'dev-firebase-uid'
             };
             logger_1.logger.info(`Development authentication successful for user: ${req.user.email}`);
             return next();
         }
         (0, firebase_1.verifyFirebaseToken)(token)
-            .then((decodedToken) => {
+            .then(async (decodedToken) => {
+            const userEmail = (decodedToken.email || '').toLowerCase();
+            const dbUser = await prisma.user.upsert({
+                where: { email: userEmail },
+                update: {
+                    name: decodedToken.name || userEmail.split('@')[0],
+                    firebaseUid: decodedToken.uid
+                },
+                create: {
+                    email: userEmail,
+                    name: decodedToken.name || userEmail.split('@')[0],
+                    firebaseUid: decodedToken.uid
+                }
+            });
             req.user = {
-                id: decodedToken.uid,
-                email: decodedToken.email || '',
-                name: decodedToken.name || undefined,
-                firebaseUid: decodedToken.uid
+                id: dbUser.id,
+                email: dbUser.email,
+                name: dbUser.name || undefined,
+                firebaseUid: dbUser.firebaseUid || decodedToken.uid
             };
+            logger_1.logger.info(`Firebase token verified for user: ${decodedToken.email}`);
             logger_1.logger.info(`Firebase authentication successful for user: ${decodedToken.email}`);
             return next();
         })

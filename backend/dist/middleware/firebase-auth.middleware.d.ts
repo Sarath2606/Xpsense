@@ -7,6 +7,6 @@ export interface FirebaseAuthRequest extends Request {
         firebaseUid: string;
     };
 }
-export declare const authenticateFirebaseToken: (req: FirebaseAuthRequest, res: Response, next: NextFunction) => void;
+export declare const authenticateFirebaseToken: (req: FirebaseAuthRequest, res: Response, next: NextFunction) => Promise<void>;
 export declare const optionalFirebaseAuth: (req: FirebaseAuthRequest, res: Response, next: NextFunction) => void;
 //# sourceMappingURL=firebase-auth.middleware.d.ts.map
