@@ -8,6 +8,7 @@ import morgan from 'morgan';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import { PrismaClient } from '@prisma/client';
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -26,6 +27,7 @@ import { errorHandler, notFoundHandler } from './middleware/error.middleware';
 dotenv.config({ path: path.resolve(__dirname, '../env.local') });
 
 const app = express();
+const prisma = new PrismaClient();
 // Respect proxy headers on Railway/Cloudflare so rate-limit & IP work correctly
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
@@ -58,10 +60,28 @@ io.use(async (socket, next) => {
       }
       return next(new Error('Unauthorized'));
     }
+    
     const decoded = await verifyFirebaseToken(token);
-    (socket as any).user = { id: decoded.uid, email: decoded.email };
+    const userEmail = (decoded.email || '').toLowerCase();
+    
+    // Find or create user in database (same as auth middleware)
+    const dbUser = await prisma.user.upsert({
+      where: { email: userEmail },
+      update: {
+        name: decoded.name || userEmail.split('@')[0],
+        firebaseUid: decoded.uid
+      },
+      create: {
+        email: userEmail,
+        name: decoded.name || userEmail.split('@')[0],
+        firebaseUid: decoded.uid
+      }
+    });
+    
+    (socket as any).user = { id: dbUser.id, email: dbUser.email };
     return next();
   } catch (err) {
+    console.error('Socket authentication error:', err);
     return next(new Error('Unauthorized'));
   }
 });

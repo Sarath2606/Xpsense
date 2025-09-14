@@ -15,9 +15,13 @@ export const useSplitwiseRealtime = (groupId, { onExpenseCreated, onBalancesUpda
 
         const baseUrl = (process.env.REACT_APP_API_URL || 'http://localhost:3001/api').replace(/\/api$/, '');
         const socket = ioClient(baseUrl, {
-          transports: ['websocket'],
+          transports: ['websocket', 'polling'], // Fallback to polling if websocket fails
           auth: { token },
-          withCredentials: true
+          withCredentials: true,
+          timeout: 5000,
+          reconnection: true,
+          reconnectionAttempts: 3,
+          reconnectionDelay: 1000
         });
         socketRef.current = socket;
 
@@ -36,8 +40,17 @@ export const useSplitwiseRealtime = (groupId, { onExpenseCreated, onBalancesUpda
             onBalancesUpdated?.();
           }
         });
-      } catch {
-        // silently ignore
+
+        socket.on('connect_error', (error) => {
+          console.warn('WebSocket connection failed, falling back to polling:', error.message);
+        });
+
+        socket.on('disconnect', (reason) => {
+          console.log('WebSocket disconnected:', reason);
+        });
+      } catch (error) {
+        console.warn('Failed to establish WebSocket connection:', error);
+        // silently ignore - app will work without real-time updates
       }
     };
 

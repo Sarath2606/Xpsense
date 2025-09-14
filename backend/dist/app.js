@@ -14,6 +14,7 @@ const morgan_1 = __importDefault(require("morgan"));
 const compression_1 = __importDefault(require("compression"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const client_1 = require("@prisma/client");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const accounts_routes_1 = __importDefault(require("./routes/accounts.routes"));
 const transactions_routes_1 = __importDefault(require("./routes/transactions.routes"));
@@ -24,6 +25,7 @@ const firebase_1 = require("./config/firebase");
 const error_middleware_1 = require("./middleware/error.middleware");
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../env.local') });
 const app = (0, express_1.default)();
+const prisma = new client_1.PrismaClient();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const server = http_1.default.createServer(app);
@@ -50,10 +52,24 @@ exports.io.use(async (socket, next) => {
             return next(new Error('Unauthorized'));
         }
         const decoded = await (0, firebase_1.verifyFirebaseToken)(token);
-        socket.user = { id: decoded.uid, email: decoded.email };
+        const userEmail = (decoded.email || '').toLowerCase();
+        const dbUser = await prisma.user.upsert({
+            where: { email: userEmail },
+            update: {
+                name: decoded.name || userEmail.split('@')[0],
+                firebaseUid: decoded.uid
+            },
+            create: {
+                email: userEmail,
+                name: decoded.name || userEmail.split('@')[0],
+                firebaseUid: decoded.uid
+            }
+        });
+        socket.user = { id: dbUser.id, email: dbUser.email };
         return next();
     }
     catch (err) {
+        console.error('Socket authentication error:', err);
         return next(new Error('Unauthorized'));
     }
 });
