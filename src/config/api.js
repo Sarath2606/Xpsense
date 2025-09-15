@@ -61,7 +61,8 @@ class ApiService {
 
   // Generic API request method with retry logic
   async request(endpoint, options = {}) {
-    const maxRetries = options.maxRetries || 2; // Reduced from 3 to 2
+    const isSilent = options.silent === true;
+    const maxRetries = options.maxRetries !== undefined ? options.maxRetries : (isSilent ? 0 : 2); // No retries for silent checks
     const baseDelay = options.baseDelay || 2000; // Increased from 1000 to 2000ms
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -78,7 +79,7 @@ class ApiService {
         
         // Handle 401 Unauthorized
         if (response.status === 401) {
-          console.error('Unauthorized request - user may need to re-authenticate');
+          if (!isSilent) console.error('Unauthorized request - user may need to re-authenticate');
           throw new Error('Unauthorized - Please login again');
         }
 
@@ -86,7 +87,7 @@ class ApiService {
         if (response.status === 429) {
           if (attempt < maxRetries) {
             const delay = baseDelay * Math.pow(2, attempt); // Exponential backoff
-            console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+            if (!isSilent) console.log(`Rate limited, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
             await new Promise(resolve => setTimeout(resolve, delay));
             continue;
           } else {
@@ -111,7 +112,7 @@ class ApiService {
         return await response.json();
       } catch (error) {
         if (attempt === maxRetries) {
-          console.error('API Request Error:', error);
+          if (!isSilent) console.error('API Request Error:', error);
           throw error;
         }
         // For non-retryable errors, throw immediately
@@ -127,7 +128,7 @@ class ApiService {
           throw error;
         }
         // For other errors, continue to retry
-        console.log(`Request failed, retrying... (attempt ${attempt + 1}/${maxRetries})`);
+        if (!isSilent) console.log(`Request failed, retrying... (attempt ${attempt + 1}/${maxRetries})`);
       }
     }
   }
@@ -289,6 +290,14 @@ class ApiService {
 
       getById: (groupId) => 
         this.request(`/splitwise/groups/${groupId}`),
+
+      // Silent existence check used by cleanup flows; suppresses console noise and retries
+      checkExists: (groupId) =>
+        this.request(`/splitwise/groups/${groupId}`, {
+          method: 'GET',
+          silent: true,
+          maxRetries: 0,
+        }),
 
       create: (groupData) => 
         this.request('/splitwise/groups', {

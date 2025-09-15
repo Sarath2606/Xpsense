@@ -63,14 +63,17 @@ const AddExpenseForm = ({ onClose, onAddExpense, group }) => {
     if (splitType === 'equal') {
       const equalAmount = totalAmount / group.members.length;
       splits = group.members.map(member => ({
-        userId: member.id,
+        userId: member.userId || member.user?.id || member.id, // Use user ID if available, fallback to member ID
         amount: equalAmount
       }));
     } else if (splitType === 'custom') {
-      splits = Object.entries(customSplits).map(([memberId, amount]) => ({
-        userId: memberId,
-        amount: parseFloat(amount) || 0
-      }));
+      splits = Object.entries(customSplits).map(([memberId, amount]) => {
+        const member = group.members.find(m => m.id === memberId);
+        return {
+          userId: member?.userId || member?.user?.id || memberId, // Use user ID if available, fallback to member ID
+          amount: parseFloat(amount) || 0
+        };
+      });
     }
 
     const newExpense = {

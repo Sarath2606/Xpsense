@@ -22,9 +22,23 @@ export const useSplitwiseApi = () => {
     }
   }, []);
 
+  // Helper function for silent API calls that should not surface errors to UI
+  const apiCallSafe = useCallback(async (apiFunction, ...args) => {
+    setLoading(true);
+    try {
+      const result = await apiFunction(...args);
+      return result;
+    } finally {
+      // Do not setError on purpose; callers will handle errors
+      setLoading(false);
+    }
+  }, []);
+
   // Groups API (memoized functions and object)
   const groups_getAll = useCallback(() => apiCall(apiService.splitwise.groups.getAll), [apiCall]);
   const groups_getById = useCallback((groupId) => apiCall(apiService.splitwise.groups.getById, groupId), [apiCall]);
+  // Safe variant for existence checks; avoids setting global error state on 403/404
+  const groups_checkExists = useCallback((groupId) => apiCallSafe(apiService.splitwise.groups.checkExists, groupId), [apiCallSafe]);
   const groups_create = useCallback((groupData) => apiCall(apiService.splitwise.groups.create, groupData), [apiCall]);
   const groups_update = useCallback((groupId, groupData) => apiCall(apiService.splitwise.groups.update, groupId, groupData), [apiCall]);
   const groups_delete = useCallback((groupId) => apiCall(apiService.splitwise.groups.delete, groupId), [apiCall]);
@@ -40,6 +54,7 @@ export const useSplitwiseApi = () => {
     addMember: groups_addMember,
     removeMember: groups_removeMember,
     updateMemberRole: groups_updateMemberRole,
+    checkExists: groups_checkExists,
   }), [groups_getAll, groups_getById, groups_create, groups_update, groups_delete, groups_addMember, groups_removeMember, groups_updateMemberRole]);
 
   // Expenses API (memoized)

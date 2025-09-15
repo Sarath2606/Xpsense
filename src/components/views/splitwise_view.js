@@ -96,13 +96,12 @@ const SplitwiseViewPage = ({
           <div className="absolute bottom-20 right-4 z-[100] pointer-events-none">
             <button
               onClick={floatingButtonClickHandler}
-              className="pointer-events-auto bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center space-x-1.5 shadow-md hover:shadow-lg"
+              className="pointer-events-auto bg-green-600 hover:bg-green-700 text-white p-3 rounded-full shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105"
+              title="Add expense"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span className="hidden sm:inline text-sm">Add expense</span>
-              <span className="sm:hidden text-sm">Add</span>
             </button>
           </div>
         )}

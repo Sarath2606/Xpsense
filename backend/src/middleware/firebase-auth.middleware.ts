@@ -61,34 +61,44 @@ export const authenticateFirebaseToken = async (
       } as AppError);
     }
 
-    // For development, accept any token and create a mock user
-    // In production, you should verify the Firebase token properly
+    // For development, verify the Firebase token properly but allow any valid token
     if (process.env.NODE_ENV === 'development') {
-      const userEmail = 'smilysarath26@gmail.com';
-      
-      // Find or create user in database for development
-      const dbUser = await prisma.user.upsert({
-        where: { email: userEmail },
-        update: {
-          name: 'Development User',
-          firebaseUid: 'dev-firebase-uid'
-        },
-        create: {
-          email: userEmail,
-          name: 'Development User',
-          firebaseUid: 'dev-firebase-uid'
-        }
-      });
+      try {
+        // Verify Firebase ID token even in development
+        const decodedToken = await verifyFirebaseToken(token);
+        const userEmail = (decodedToken.email || '').toLowerCase();
+        
+        // Find or create user in database using real Firebase data
+        const dbUser = await prisma.user.upsert({
+          where: { email: userEmail },
+          update: {
+            name: decodedToken.name || userEmail.split('@')[0],
+            firebaseUid: decodedToken.uid
+          },
+          create: {
+            email: userEmail,
+            name: decodedToken.name || userEmail.split('@')[0],
+            firebaseUid: decodedToken.uid
+          }
+        });
 
-      req.user = {
-        id: dbUser.id, // Use database user ID
-        email: dbUser.email,
-        name: dbUser.name || undefined,
-        firebaseUid: dbUser.firebaseUid || 'dev-firebase-uid'
-      };
+        req.user = {
+          id: dbUser.id, // Use database user ID
+          email: dbUser.email,
+          name: dbUser.name || undefined,
+          firebaseUid: dbUser.firebaseUid || decodedToken.uid
+        };
 
-      logger.info(`Development authentication successful for user: ${req.user.email}`);
-      return next();
+        logger.info(`Development Firebase authentication successful for user: ${req.user.email}`);
+        return next();
+      } catch (error) {
+        logger.error('Development Firebase token verification failed:', error);
+        return next({
+          name: 'FirebaseAuthError',
+          message: 'Invalid Firebase token in development',
+          statusCode: 401,
+        } as AppError);
+      }
     }
 
     // Verify Firebase ID token (for production)

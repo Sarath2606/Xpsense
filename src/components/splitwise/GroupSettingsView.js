@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 
-const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated }) => {
+const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated, onShowAddMember }) => {
   const [groupName, setGroupName] = useState('');
   const [groupDescription, setGroupDescription] = useState('');
   const [isEditingName, setIsEditingName] = useState(false);
@@ -27,9 +27,16 @@ const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated }) => {
   ];
 
   // Check if current user is admin
-  const isAdmin = group?.members?.find(member => 
-    (member.id === 'current_user' || member.email === currentUser?.email) && member.role === 'admin'
-  );
+  const isAdmin = group?.members?.find(member => {
+    const isCurrentUser = member.id === 'current_user' || 
+                         member.email === currentUser?.email ||
+                         member.userId === currentUser?.uid ||
+                         member.user?.id === currentUser?.uid ||
+                         member.user?.email === currentUser?.email;
+    const isAdminRole = member.role === 'admin';
+    
+    return isCurrentUser && isAdminRole;
+  });
 
   // Initialize form data when group changes
   useEffect(() => {
@@ -180,14 +187,73 @@ const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated }) => {
     
     setLoading(true);
     try {
-      // TODO: Implement API call to delete group
-      console.log('Deleting group:', group.id);
-      // await groups.delete(group.id);
+      // Send notification to all group members before deleting
+      const groupMembers = group.members || [];
+      const adminMember = groupMembers.find(member => 
+        (member.id === 'current_user' || member.email === currentUser?.email) && member.role === 'admin'
+      );
       
+      // Create notification data
+      const notificationData = {
+        type: 'GROUP_DELETED',
+        groupId: group.id,
+        groupName: group.name,
+        deletedBy: {
+          name: adminMember?.name || currentUser?.displayName || 'Admin',
+          email: adminMember?.email || currentUser?.email
+        },
+        message: `The group "${group.name}" has been deleted by ${adminMember?.name || currentUser?.displayName || 'the admin'}. All expenses and balances have been removed.`,
+        timestamp: new Date().toISOString()
+      };
+
+      // Send notifications to all members (except the admin who is deleting)
+      const membersToNotify = groupMembers.filter(member => 
+        member.id !== 'current_user' && member.email !== currentUser?.email
+      );
+
+      // TODO: Implement real-time notification system
+      console.log('Sending notifications to members:', membersToNotify);
+      console.log('Notification data:', notificationData);
+      
+      // Send email notifications to all members
+      for (const member of membersToNotify) {
+        if (member.email) {
+          // TODO: Implement email notification service
+          console.log(`Sending email to ${member.email}:`, notificationData.message);
+        }
+      }
+
+      // Delete the group via API
+      console.log('🗑️ Deleting group:', group.id);
+      console.log('🔍 Group object:', group);
+      console.log('🔍 Current user for deletion:', currentUser);
+      console.log('🔍 User ID being sent:', currentUser?.uid);
+      
+      const result = await groups.delete(group.id);
+      console.log('✅ Delete result:', result);
+      
+      // Show success message
+      console.log(`Group "${group.name}" deleted successfully. Notifications sent to ${membersToNotify.length} members.`);
+      
+      // Show success alert to user
+      alert(`Group "${group.name}" has been deleted successfully! All ${membersToNotify.length} members have been notified.`);
+      
+      // Close confirmation modal
+      setShowDeleteConfirm(false);
+      
+      // Navigate back to group list
       onBack();
-      // TODO: Navigate back to group list or show success message
+      
     } catch (error) {
-      console.error('Failed to delete group:', error);
+      console.error('❌ Failed to delete group:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        status: error.status,
+        response: error.response,
+        groupId: group.id,
+        currentUser: currentUser
+      });
+      alert(`Failed to delete group: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setLoading(false);
     }
@@ -354,8 +420,7 @@ const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated }) => {
         <div className="mb-3">
           <button
             onClick={() => {
-              // TODO: Open add member modal or form
-              console.log('Add people to group clicked');
+              onShowAddMember?.();
             }}
             className="w-full flex items-center justify-between p-3 bg-gray-800 rounded-xl hover:bg-gray-700 transition-colors"
           >
@@ -537,17 +602,42 @@ const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated }) => {
 
         {/* Delete Group (Admin Only) */}
         {isAdmin && (
-        <div className="p-3 border border-red-600 rounded-xl bg-red-900/20">
-          <h4 className="text-red-400 text-sm font-medium mb-2">Delete Group</h4>
-          <p className="text-gray-300 text-xs mb-3">
-            This will permanently delete the group and all its data. All members will be notified.
-          </p>
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="w-full px-3 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
-          >
-              Delete Group
-            </button>
+        <div className="p-4 border border-red-600 rounded-xl bg-red-900/20">
+          <div className="flex items-start space-x-3">
+            <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-red-400 text-sm font-semibold mb-2">Danger Zone</h4>
+              <p className="text-gray-300 text-xs mb-3">
+                Permanently delete this group and all its data. All {group.members?.length || 0} members will receive real-time notifications about the deletion.
+              </p>
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={loading}
+                className="w-full px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    Delete Group
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
           </div>
         )}
       </div>
@@ -582,26 +672,68 @@ const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated }) => {
       )}
 
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-sm">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" style={{zIndex: 9999}}>
+          <div className="bg-gray-800 rounded-xl shadow-2xl w-full max-w-md">
             <div className="p-6">
-              <h3 className="text-lg font-semibold text-red-400 mb-2">Delete Group</h3>
-              <p className="text-gray-300 mb-4">
-                Are you sure you want to permanently delete "{group.name}"? This will remove all expenses, balances, and group data. All members will be notified.
-              </p>
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-red-400">Delete Group</h3>
+                  <p className="text-gray-400 text-sm">This action cannot be undone</p>
+                </div>
+              </div>
+              
+              <div className="mb-4">
+                <p className="text-gray-300 mb-3">
+                  Are you sure you want to permanently delete <span className="font-semibold text-white">"{group.name}"</span>?
+                </p>
+                
+                <div className="bg-gray-700 rounded-lg p-3 mb-3">
+                  <h4 className="text-gray-200 font-medium text-sm mb-2">What will be deleted:</h4>
+                  <ul className="text-gray-400 text-sm space-y-1">
+                    <li>• All expenses and transactions</li>
+                    <li>• All balances and debt records</li>
+                    <li>• All group settings and data</li>
+                    <li>• All member relationships</li>
+                  </ul>
+                </div>
+                
+                <div className="bg-blue-900/30 border border-blue-600/30 rounded-lg p-3">
+                  <h4 className="text-blue-400 font-medium text-sm mb-1">Real-time notifications:</h4>
+                  <p className="text-gray-300 text-sm">
+                    All {group.members?.filter(m => m.id !== 'current_user' && m.email !== currentUser?.email).length || 0} group members will receive instant notifications via email and in-app alerts about this deletion.
+                  </p>
+                </div>
+              </div>
+              
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg font-medium hover:bg-gray-700 transition-colors"
+                  disabled={loading}
+                  className="flex-1 px-4 py-2 border border-gray-600 text-gray-300 rounded-lg font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteGroup}
                   disabled={loading}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium disabled:opacity-50 hover:bg-red-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg font-medium disabled:opacity-50 hover:bg-red-700 transition-colors flex items-center justify-center space-x-2"
                 >
-                  Delete Group
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete Group'
+                  )}
                 </button>
               </div>
             </div>

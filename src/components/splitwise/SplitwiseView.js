@@ -4,6 +4,7 @@ import CreateGroupView from './CreateGroupView';
 import GroupDetailView from './GroupDetailView';
 import AddExpenseForm from './AddExpenseForm';
 import GroupSettingsView from './GroupSettingsView';
+import AddMemberPage from './AddMemberPage';
 import AcceptInviteModal from './AcceptInviteModal';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 import { useAuth } from '../../hooks/use_auth_hook';
@@ -15,7 +16,8 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
   const [showAcceptInvite, setShowAcceptInvite] = useState(false);
 
   const [selectedGroup, setSelectedGroup] = useState(null);
-  const [view, setView] = useState('list'); // 'list', 'detail', 'addExpense', or 'settings'
+  const [view, setView] = useState('list'); // 'list', 'detail', 'addExpense', 'settings', or 'addMember'
+  const [isInSettlementMode, setIsInSettlementMode] = useState(false);
   
   const { loading, error, clearError, groups: groupsApi, expenses: expensesApi } = useSplitwiseApi();
   const { user, isAuthenticated: authHookAuthenticated } = useAuth();
@@ -66,22 +68,22 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     });
   }, [user, authHookAuthenticated]);
 
-  const loadGroups = useCallback(async () => {
-    // Prevent multiple simultaneous calls
-    if (loadingRef.current) {
+  const loadGroups = useCallback(async (forceRefresh = false) => {
+    // Prevent multiple simultaneous calls unless forced
+    if (loadingRef.current && !forceRefresh) {
       console.log('SplitwiseView: Groups already loading, skipping...');
       return;
     }
     
-    // Prevent duplicate calls if groups are already loaded
-    if (groupsLoadedRef.current) {
+    // Prevent duplicate calls if groups are already loaded and not forcing refresh
+    if (groupsLoadedRef.current && !forceRefresh) {
       console.log('SplitwiseView: Groups already loaded, skipping...');
       return;
     }
 
     try {
       loadingRef.current = true;
-      console.log('SplitwiseView: Attempting to load groups...');
+      console.log('SplitwiseView: Attempting to load groups...', forceRefresh ? '(forced refresh)' : '');
       
       // Add a timeout to prevent hanging requests
       const timeoutPromise = new Promise((_, reject) => {
@@ -93,7 +95,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
         timeoutPromise
       ]);
       
-      // Always update groups on first load
+      // Always update groups
       const newGroups = response.groups || [];
       setGroups(newGroups);
       
@@ -103,6 +105,11 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       
       groupsLoadedRef.current = true;
       setIsInitialLoad(false);
+      
+      console.log('SplitwiseView: Groups loaded successfully:', newGroups.length, 'groups');
+      
+      // Return the groups for the caller
+      return newGroups;
     } catch (err) {
       console.error('Failed to load groups:', err);
       
@@ -170,6 +177,14 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     loadGroups();
   }, [loadGroups]);
 
+  // Manual refresh function
+  const handleRefreshGroups = useCallback(() => {
+    console.log('🔄 Manually refreshing groups...');
+    groupsLoadedRef.current = false;
+    loadingRef.current = false;
+    loadGroups();
+  }, [loadGroups]);
+
   const handleCreateGroup = async (newGroup) => {
     try {
       const response = await groupsApi.create(newGroup);
@@ -200,24 +215,94 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
 
   const handleDeleteGroup = async (groupId) => {
     try {
+      console.log('🗑️ Starting group deletion for:', groupId);
+      
+      // Delete the group from backend
       await groupsApi.delete(groupId);
-      setGroups(groups.filter(group => group.id !== groupId));
+      console.log('✅ Group deleted successfully from backend');
+      
+      // Immediately remove from local state and navigate back
+      setGroups(prevGroups => {
+        const updatedGroups = prevGroups.filter(group => group.id !== groupId);
+        console.log('📝 Updated local groups list:', updatedGroups.length, 'groups remaining');
+        return updatedGroups;
+      });
+      
       setSelectedGroup(null);
       setView('list');
+      
+      // Force immediate refresh to ensure data consistency
+      console.log('🔄 Forcing immediate refresh...');
+      groupsLoadedRef.current = false;
+      loadingRef.current = false;
+      
+      // Load fresh data immediately with force refresh
+      try {
+        const refreshedGroups = await loadGroups(true);
+        console.log('✅ Groups refreshed successfully:', refreshedGroups?.length || 0, 'groups');
+      } catch (refreshError) {
+        console.error('⚠️ Refresh failed, but local state already updated:', refreshError);
+      }
+      
     } catch (err) {
-      console.error('Failed to delete group:', err);
+      console.error('❌ Failed to delete group:', err);
+      
+      // Even if deletion fails, force refresh the groups list
+      console.log('🔄 Forcing refresh due to deletion failure...');
+      groupsLoadedRef.current = false;
+      loadingRef.current = false;
+      await loadGroups(true);
     }
   };
 
   const handleSelectGroup = (group) => {
+    console.log('👆 User selected group:', group.id, group.name);
     setSelectedGroup(group);
     setView('detail');
   };
 
+  // Function to clean up stale groups by checking their existence
+  const cleanupStaleGroups = useCallback(async () => {
+    console.log('🧹 Checking for stale groups...');
+    const currentGroups = [...groups];
+    const validGroups = [];
+    
+    for (const group of currentGroups) {
+      try {
+        // Try to get group details to verify it still exists (silent check to avoid surfacing 403/404)
+        await (groupsApi.checkExists ? groupsApi.checkExists(group.id) : groupsApi.getById(group.id));
+        validGroups.push(group);
+        console.log('✅ Group is valid:', group.id, group.name);
+      } catch (error) {
+        console.log('🗑️ Removing stale group:', group.id, group.name, error.message);
+        // Group doesn't exist or user doesn't have access - remove it
+      }
+    }
+    
+    if (validGroups.length !== currentGroups.length) {
+      console.log('📝 Updating groups list - removed', currentGroups.length - validGroups.length, 'stale groups');
+      setGroups(validGroups);
+    }
+  }, [groups, groupsApi]);
+
   const handleBackToList = useCallback(() => {
+    console.log('🔙 Navigating back to list - checking for data inconsistencies');
     setSelectedGroup(null);
     setView('list');
-  }, []);
+    
+    // Force refresh groups to ensure we have the latest data
+    setTimeout(async () => {
+      console.log('🔄 Auto-refreshing groups after navigation back');
+      groupsLoadedRef.current = false;
+      loadingRef.current = false;
+      
+      // First try a full refresh
+      await loadGroups(true);
+      
+      // Then clean up any remaining stale groups
+      await cleanupStaleGroups();
+    }, 200);
+  }, [loadGroups, cleanupStaleGroups]);
 
   const handleShowCreateGroup = useCallback(() => {
     setShowCreateGroup(true);
@@ -249,15 +334,28 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     setView('detail');
   }, []);
 
+  const handleShowAddMember = useCallback(() => {
+    setView('addMember');
+  }, []);
+
+  const handleBackFromAddMember = useCallback(() => {
+    setView('settings');
+  }, []);
+
+  const handleSettlementModeChange = useCallback((isInSettlement) => {
+    setIsInSettlementMode(isInSettlement);
+  }, []);
+
   const handleFloatingButtonClick = useCallback(() => {
     setView('addExpense');
   }, []);
 
   // Notify parent about floating button state
   useEffect(() => {
-    const shouldShowFloatingButton = view === 'detail' && selectedGroup && selectedGroup.members && selectedGroup.members.length > 1;
+    // Only show floating button on group detail view, not on settlement views
+    const shouldShowFloatingButton = view === 'detail' && !isInSettlementMode && selectedGroup && selectedGroup.members && selectedGroup.members.length > 1;
     onFloatingButtonStateChange?.(shouldShowFloatingButton, selectedGroup, handleFloatingButtonClick);
-  }, [view, selectedGroup, onFloatingButtonStateChange, handleFloatingButtonClick]);
+  }, [view, selectedGroup, isInSettlementMode, onFloatingButtonStateChange, handleFloatingButtonClick]);
 
   const handleAddExpense = useCallback(async (newExpense) => {
     if (!selectedGroup?.id) {
@@ -269,9 +367,29 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       // Resolve current user's backend member id from group members
       const currentUserEmail = user?.email?.toLowerCase();
       const members = Array.isArray(selectedGroup.members) ? selectedGroup.members : [];
-      const currentUserMember = members.find(m => (m.email && m.email.toLowerCase() === currentUserEmail));
+      const currentUserMember = members.find(m => {
+        const memberEmail = ((m.email || m.user?.email) || '').toLowerCase();
+        return memberEmail && memberEmail === currentUserEmail;
+      });
       const resolveBackendUserId = (m) => (m?.userId || m?.id);
       const payerId = resolveBackendUserId(currentUserMember);
+      
+      console.log('🔍 SplitwiseView expense creation debug:', {
+        currentUserEmail,
+        currentUserMember: currentUserMember ? {
+          id: currentUserMember.id,
+          userId: currentUserMember.userId,
+          email: currentUserMember.email,
+          userEmail: currentUserMember.user?.email
+        } : null,
+        payerId,
+        members: members.map(m => ({
+          id: m.id,
+          userId: m.userId,
+          email: m.email,
+          userEmail: m.user?.email
+        }))
+      });
 
       // Map frontend split type to backend
       const backendSplitType = newExpense.splitType === 'equal' ? 'EQUAL' : 'UNEQUAL';
@@ -281,7 +399,8 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
         .map(m => {
           const backendId = resolveBackendUserId(m);
           // If this member is the current user, ensure we use payerId
-          if (m.email && m.email.toLowerCase() === currentUserEmail) return payerId;
+          const memberEmail = ((m.email || m.user?.email) || '').toLowerCase();
+          if (memberEmail && memberEmail === currentUserEmail) return payerId;
           return backendId;
         })
         .filter(Boolean);
@@ -368,7 +487,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
             </button>
           )}
           
-          {view === 'detail' && !showCreateGroup && (
+          {view === 'detail' && !showCreateGroup && !isInSettlementMode && (
             <button
               onClick={() => setView('settings')}
               className="bg-gray-600 hover:bg-gray-700 text-white p-3 rounded-lg transition-colors flex items-center justify-center"
@@ -523,6 +642,23 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
                 currentUser={user}
                 onBack={handleBackFromSettings}
                 onGroupUpdated={handleUpdateGroup}
+                onShowAddMember={handleShowAddMember}
+              />
+            </div>
+                  ) : view === 'addMember' ? (
+            <div className="animate-fadeIn">
+              <AddMemberPage
+                group={selectedGroup}
+                onBack={handleBackFromAddMember}
+                onMemberAdded={(newMember) => {
+                  // Update the group with the new member
+                  handleUpdateGroup({
+                    ...selectedGroup,
+                    members: [...(selectedGroup.members || []), newMember]
+                  });
+                  // Navigate back to settings
+                  setView('settings');
+                }}
               />
             </div>
                   ) : (
@@ -531,6 +667,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
                 group={selectedGroup}
                 onUpdateGroup={handleUpdateGroup}
                 onBack={handleBackToList}
+                onSettlementModeChange={handleSettlementModeChange}
               />
             </div>
           )}

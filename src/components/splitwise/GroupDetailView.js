@@ -1,18 +1,27 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import AddExpenseForm from './AddExpenseForm';
-import AddMemberModal from './AddMemberModal';
+import AddMemberPage from './AddMemberPage';
 import SendInviteModal from './SendInviteModal';
+import SettlementSelectionView from './SettlementSelectionView';
+import SettlementDetailView from './SettlementDetailView';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 import { useAuth } from '../../hooks/use_auth_hook';
 import { useSplitwiseRealtime } from '../../hooks/use_splitwise_realtime';
 
-const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) => {
+const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick, onSettlementModeChange }) => {
+  
   const [showAddExpense, setShowAddExpense] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
+  const [showAddMemberPage, setShowAddMemberPage] = useState(false);
   const [showSendInvite, setShowSendInvite] = useState(false);
   const [expenses, setExpenses] = useState([]);
   const [balances, setBalances] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [settlementSuccess, setSettlementSuccess] = useState(null);
+  const [showSettlementSelection, setShowSettlementSelection] = useState(false);
+  const [showSettlementDetail, setShowSettlementDetail] = useState(false);
+  const [selectedBalance, setSelectedBalance] = useState(null);
+  const [settlements, setSettlements] = useState([]);
 
   // Move all hooks to the top before any conditional returns
   const { expenses: expensesApi, balances: balancesApi } = useSplitwiseApi();
@@ -20,11 +29,63 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
 
   // Determine the current member id for this group based on authenticated user
   const currentMember = (group?.members || []).find((member) => {
-    const memberEmail = (member.email || '').toLowerCase();
+    // Check both member.email and member.user.email
+    const memberEmail = ((member.email || member.user?.email) || '').toLowerCase();
     const userEmail = (user?.email || '').toLowerCase();
     return memberEmail && userEmail && memberEmail === userEmail;
   }) || (group?.members || []).find((member) => member.id === 'current_user');
   const currentMemberId = currentMember?.id || 'current_user';
+
+  // Debug logging for current member resolution
+  console.log('🔍 Debug current member resolution:', {
+    userEmail: user?.email,
+    groupMembers: group?.members?.map(m => ({ 
+      id: m.id, 
+      email: m.email, 
+      name: m.name,
+      userEmail: m.user?.email,
+      userName: m.user?.name
+    })),
+    currentMember: currentMember ? { 
+      id: currentMember.id, 
+      email: currentMember.email, 
+      name: currentMember.name,
+      userEmail: currentMember.user?.email,
+      userName: currentMember.user?.name
+    } : null,
+    currentMemberId
+  });
+
+  // Additional debugging for member matching
+  if (group?.members) {
+    console.log('🔍 Detailed member matching:', {
+      userEmail: user?.email,
+      userEmailLower: user?.email?.toLowerCase(),
+      groupMembersDetailed: group.members.map(member => ({
+        id: member.id,
+        email: member.email,
+        emailLower: member.email?.toLowerCase(),
+        name: member.name,
+        matches: (member.email || '').toLowerCase() === (user?.email || '').toLowerCase()
+      }))
+    });
+    
+    // Log each member individually for clarity
+    console.log('🔍 Individual group members:');
+    group.members.forEach((member, index) => {
+      console.log(`  Member ${index + 1}:`, {
+        id: member.id,
+        email: member.email,
+        name: member.name,
+        role: member.role,
+        user: member.user ? {
+          id: member.user.id,
+          email: member.user.email,
+          name: member.user.name
+        } : null
+      });
+    });
+  }
 
   const loadGroupData = useCallback(async () => {
     if (!group?.id) return;
@@ -36,21 +97,48 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
         balancesApi.getGroupBalances(group.id)
       ]);
       
+      
       setExpenses(expensesResponse.expenses || []);
       setBalances(balancesResponse);
     } catch (err) {
       console.error('Failed to load group data:', err);
+      
+      // If the group doesn't exist or user is not a member, notify parent to go back to list
+      if (err.message && (err.message.includes('Group not found') || err.message.includes('Not a member'))) {
+        console.log('🚨 Group access error - navigating back to list immediately');
+        // Call parent callback to handle this error immediately and refresh groups
+        if (onBack) {
+          onBack();
+          // Trigger a refresh of the groups list to remove stale data
+          setTimeout(() => {
+            console.log('🔄 Triggering groups refresh due to access error');
+            // This will be handled by the parent component
+          }, 100);
+        }
+      }
     } finally {
       setLoading(false);
     }
-  }, [group?.id, expensesApi, balancesApi]);
+  }, [group?.id, expensesApi, balancesApi, onBack]);
 
   // Load expenses and balances when group changes
   useEffect(() => {
     if (group?.id) {
       loadGroupData();
+      // Load settlements from localStorage
+      const savedSettlements = localStorage.getItem(`settlements_${group.id}`);
+      if (savedSettlements) {
+        setSettlements(JSON.parse(savedSettlements));
+      }
     }
-  }, [loadGroupData]);
+  }, [loadGroupData, group?.id]);
+
+  // Save settlements to localStorage whenever settlements change
+  useEffect(() => {
+    if (group?.id && settlements.length > 0) {
+      localStorage.setItem(`settlements_${group.id}`, JSON.stringify(settlements));
+    }
+  }, [settlements, group?.id]);
 
   // Realtime updates: join group room and handle events
   useSplitwiseRealtime(group?.id, {
@@ -61,6 +149,13 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
       loadGroupData();
     }
   });
+
+  // Notify parent when in settlement mode or add member mode
+  useEffect(() => {
+    const isInSettlementMode = showSettlementSelection || showSettlementDetail;
+    const isInAddMemberMode = showAddMemberPage;
+    onSettlementModeChange?.(isInSettlementMode || isInAddMemberMode);
+  }, [showSettlementSelection, showSettlementDetail, showAddMemberPage, onSettlementModeChange]);
 
   // Safety check for group object - moved after all hooks
   if (!group) {
@@ -79,6 +174,9 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
   }
 
   const formatCurrency = (amount) => {
+    if (isNaN(amount) || amount === null || amount === undefined) {
+      return '$0.00';
+    }
     return new Intl.NumberFormat('en-AU', {
       style: 'currency',
       currency: group.currency || 'AUD'
@@ -86,8 +184,102 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
   };
 
   const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
-  const currentUserBalanceCents = balances?.userBalances?.find(b => b.userId === currentMemberId)?.netAmount || 0;
-  const currentUserBalance = (currentUserBalanceCents || 0) / 100;
+  
+  // Calculate balances with better error handling
+  const calculateBalances = () => {
+    if (!balances?.userBalances || !Array.isArray(balances.userBalances)) {
+      return {
+        youOweTotal: 0,
+        youAreOwedTotal: 0,
+        youOweList: [],
+        youAreOwedList: []
+      };
+    }
+
+    // Get the current member to find their user ID
+    const currentMember = group.members?.find(m => m.id === currentMemberId);
+    const currentUserId = currentMember?.userId || currentMember?.user?.id;
+
+    console.log('🔍 Balance calculation debug:', {
+      currentMemberId,
+      currentUserId,
+      currentMember: currentMember ? { id: currentMember.id, userId: currentMember.userId, user: currentMember.user } : null,
+      userBalances: balances.userBalances.map(b => ({
+        userId: b.userId,
+        userEmail: b.userEmail,
+        netAmount: b.netAmount,
+        netAmountType: typeof b.netAmount,
+        netAmountNumber: Number(b.netAmount)
+      }))
+    });
+
+    const youOweList = balances.userBalances.filter(balance => {
+      // More flexible matching - try multiple ways to identify current user
+      const isCurrentUser = balance.userId === currentUserId || 
+                           balance.userId === currentMemberId ||
+                           balance.userId === user?.uid ||
+                           balance.userEmail === user?.email ||
+                           balance.userId === 'current_user';
+      
+      // Convert netAmount to number (handle both string and number types)
+      const netAmount = Number(balance.netAmount) || 0;
+      // FIXED: If someone has a negative balance, it means they owe money, so YOU are owed money
+      // If someone has a positive balance, it means they are owed money, so YOU owe them money
+      const shouldInclude = !isCurrentUser && netAmount > 0;
+      
+      console.log('🔍 YouOwe filter (FIXED):', {
+        userId: balance.userId,
+        isCurrentUser,
+        netAmount,
+        shouldInclude,
+        explanation: netAmount > 0 ? 'They are owed money, so you owe them' : 'They owe money, so you are owed'
+      });
+      
+      return shouldInclude;
+    });
+
+    const youAreOwedList = balances.userBalances.filter(balance => {
+      const isCurrentUser = balance.userId === currentUserId || 
+                           balance.userId === currentMemberId ||
+                           balance.userId === user?.uid ||
+                           balance.userEmail === user?.email ||
+                           balance.userId === 'current_user';
+      
+      // Convert netAmount to number (handle both string and number types)
+      const netAmount = Number(balance.netAmount) || 0;
+      // FIXED: If someone has a negative balance, it means they owe money, so YOU are owed money
+      const shouldInclude = !isCurrentUser && netAmount < 0;
+      
+      console.log('🔍 YouAreOwed filter (FIXED):', {
+        userId: balance.userId,
+        isCurrentUser,
+        netAmount,
+        shouldInclude,
+        explanation: netAmount < 0 ? 'They owe money, so you are owed' : 'They are owed money, so you owe them'
+      });
+      
+      return shouldInclude;
+    });
+
+    const youOweTotal = youOweList.reduce((sum, b) => sum + (Number(b.netAmount) || 0), 0) / 100;
+    const youAreOwedTotal = Math.abs(youAreOwedList.reduce((sum, b) => sum + (Number(b.netAmount) || 0), 0)) / 100;
+
+    console.log('💰 Balance calculation results:', {
+      youOweList: youOweList.map(b => ({ userId: b.userId, netAmount: b.netAmount })),
+      youAreOwedList: youAreOwedList.map(b => ({ userId: b.userId, netAmount: b.netAmount })),
+      youOweTotal,
+      youAreOwedTotal
+    });
+
+    return {
+      youOweTotal,
+      youAreOwedTotal,
+      youOweList,
+      youAreOwedList
+    };
+  };
+
+  const balanceData = calculateBalances();
 
   // Check if current user is admin
   const currentUser = (group.members || []).find(member => member.id === currentMemberId);
@@ -95,8 +287,12 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
 
   const handleAddExpense = async (newExpense) => {
     try {
-      // Ensure payer is the authenticated member id
-      const expenseToCreate = { ...newExpense, paidBy: currentMemberId };
+      // Get the current member to find their user ID for the payer
+      const currentMember = group.members?.find(m => m.id === currentMemberId);
+      const currentUserId = currentMember?.userId || currentMember?.user?.id;
+      
+      // Ensure payer is the authenticated user id (not member id)
+      const expenseToCreate = { ...newExpense, paidBy: currentUserId };
       const response = await expensesApi.create(group.id, expenseToCreate);
       const createdExpense = response.expense;
       setExpenses([...expenses, createdExpense]);
@@ -124,18 +320,118 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
     console.log('Invitation sent successfully:', invitation);
   };
 
-  const handleSettleExpense = (expenseId) => {
-    const updatedExpenses = (group.expenses || []).map(expense =>
-      expense.id === expenseId ? { ...expense, settled: true } : expense
-    );
-    
-    const updatedGroup = {
-      ...group,
-      expenses: updatedExpenses
+  const handleSelectBalance = (balance) => {
+    setSelectedBalance(balance);
+    setShowSettlementSelection(false);
+    setShowSettlementDetail(true);
+  };
+
+  const handleBackFromSettlementDetail = () => {
+    setShowSettlementDetail(false);
+    setShowSettlementSelection(true);
+  };
+
+  const handleBackFromSettlementSelection = () => {
+    setShowSettlementSelection(false);
+    setSelectedBalance(null);
+  };
+
+  const handleSettlementComplete = (settlementData) => {
+    const newSettlement = {
+      id: `settlement_${Date.now()}`,
+      type: 'settlement',
+      description: `Settled with ${settlementData.member?.name || 'Unknown'}`,
+      amount: settlementData.settledAmount,
+      member: settlementData.member,
+      date: new Date().toISOString(),
+      settled: true
     };
     
-    onUpdateGroup(updatedGroup);
+    // Add settlement to the list
+    setSettlements(prev => [newSettlement, ...prev]);
+    
+    // Go back to group detail view
+    setShowSettlementDetail(false);
+    setShowSettlementSelection(false);
+    setSelectedBalance(null);
+    
+    // Reload balances to reflect the settlement
+    loadGroupData();
   };
+
+  const handleSettleExpense = async (expense) => {
+    try {
+      setLoading(true);
+      
+      // TODO: Implement actual settlement API call
+      // For now, we'll simulate the settlement
+      console.log('Settling expense:', expense);
+      
+      // Update the expense to show as settled
+      const updatedExpenses = expenses.map(exp =>
+        exp.id === expense.id ? { ...exp, settled: true } : exp
+      );
+      setExpenses(updatedExpenses);
+      
+      // Show success message
+      setSettlementSuccess({
+        expenseId: expense.id,
+        amount: expense.amount,
+        description: expense.description
+      });
+      
+      // Hide success message after 3 seconds
+      setTimeout(() => {
+        setSettlementSuccess(null);
+      }, 3000);
+      
+      // Reload balances to reflect the settlement
+      await loadGroupData();
+      
+    } catch (error) {
+      console.error('Failed to settle expense:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  
+  // Show settlement selection view
+  if (showSettlementSelection) {
+    return (
+      <SettlementSelectionView
+        group={group}
+        balances={balances}
+        onBack={handleBackFromSettlementSelection}
+        onSelectUser={handleSelectBalance}
+        formatCurrency={formatCurrency}
+      />
+    );
+  }
+
+  // Show settlement detail view
+  if (showSettlementDetail) {
+    return (
+      <SettlementDetailView
+        selectedBalance={selectedBalance}
+        onBack={handleBackFromSettlementDetail}
+        formatCurrency={formatCurrency}
+        onSettlementComplete={handleSettlementComplete}
+      />
+    );
+  }
+
+  // Show add member page
+  if (showAddMemberPage) {
+    return (
+      <AddMemberPage
+        group={group}
+        onBack={() => setShowAddMemberPage(false)}
+        onMemberAdded={handleAddMember}
+      />
+    );
+  }
 
   return (
     <>
@@ -158,7 +454,7 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
       {isAdmin && (
         <div className="flex space-x-3 mb-4">
           <button
-            onClick={() => setShowAddMember(true)}
+            onClick={() => setShowAddMemberPage(true)}
             className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center"
           >
             <svg className="w-3 h-3 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -205,7 +501,7 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
             
             <div className="space-y-3">
               <button
-                onClick={() => setShowAddMember(true)}
+                onClick={() => setShowAddMemberPage(true)}
                 className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,35 +531,19 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
         <div className="grid grid-cols-3 gap-2 mb-4">
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-xs text-gray-500">You're Owed</div>
-            <div className="text-lg font-bold text-green-600 truncate">
-              {balances?.userBalances ? 
-                formatCurrency(
-                  (balances.userBalances
-                    .filter(b => b.userId !== currentMemberId && (b.netAmount || 0) > 0)
-                    .reduce((sum, b) => sum + (b.netAmount || 0), 0)) / 100
-                ) : 
-                formatCurrency(0)
-              }
+            <div className="text-base font-bold text-white truncate">
+              {formatCurrency(balanceData.youAreOwedTotal)}
             </div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-xs text-gray-500">You Owe</div>
-            <div className="text-lg font-bold text-red-600 truncate">
-              {balances?.userBalances ? 
-                formatCurrency(
-                  Math.abs(
-                    (balances.userBalances
-                      .filter(b => b.userId !== currentMemberId && (b.netAmount || 0) < 0)
-                      .reduce((sum, b) => sum + (b.netAmount || 0), 0)) / 100
-                  )
-                ) : 
-                formatCurrency(0)
-              }
+            <div className="text-base font-bold text-white truncate">
+              {formatCurrency(balanceData.youOweTotal)}
             </div>
           </div>
           <div className="bg-white border border-gray-200 rounded-lg p-4">
             <div className="text-xs text-gray-500">Members</div>
-            <div className="text-lg font-bold text-gray-900">{group.members?.length || 0}</div>
+            <div className="text-base font-bold text-gray-900">{group.members?.length || 0}</div>
           </div>
         </div>
 
@@ -272,61 +552,62 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
         <div className="mb-4 space-y-3">
           {/* You're Owed Section */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-4 border-b border-gray-200 bg-green-50">
-              <h4 className="font-semibold text-green-800">You're Owed</h4>
-              <p className="text-sm text-green-600 mt-1">People who owe you money</p>
+            <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
+              <h4 className="font-semibold text-white">You're Owed</h4>
+              <p className="text-sm text-gray-500 mt-1">People who owe you money</p>
             </div>
             
             {balances?.userBalances ? (
               <div>
-                {balances.userBalances
-                  .filter(balance => balance.userId !== currentMemberId && (balance.netAmount || 0) > 0)
-                  .sort((a, b) => b.netBalance - a.netBalance)
-                  .map((balance) => {
-                    const member = (group.members || []).find(m => m.id === balance.userId);
-                    
-                    return (
-                      <div key={balance.userId} className="px-4 py-4 border-b border-gray-100 last:border-b-0">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center mr-3">
-                              <span className="text-sm font-medium text-green-700">
-                                {(member?.name || member?.email || 'Unknown').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {member?.name || member?.email || 'Unknown'}
+                {balanceData.youAreOwedList.length > 0 ? (
+                  balanceData.youAreOwedList
+                    .sort((a, b) => (Number(b.netAmount) || 0) - (Number(a.netAmount) || 0))
+                    .map((balance) => {
+                      const member = (group.members || []).find(m => {
+                        const memberUserId = m.userId || m.user?.id;
+                        return memberUserId === balance.userId || m.id === balance.userId;
+                      });
+                      
+                      return (
+                        <div key={balance.userId} className="px-4 py-4 border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+                                <span className="text-sm font-medium text-gray-700">
+                                  {(member?.name || member?.email || 'Unknown').charAt(0).toUpperCase()}
+                                </span>
                               </div>
-                              <div className="text-sm text-green-600">
-                                Owes you {formatCurrency((balance.netAmount || 0) / 100)}
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {member?.name || member?.email || 'Unknown'}
+                                </div>
+                                <div className="text-sm text-white">
+                                  Owes you {formatCurrency((Number(balance.netAmount) || 0) / 100)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          
-                          <div className="text-right text-green-600">
-                            <div className="text-lg font-bold text-green-600">
-                              +{formatCurrency((balance.netAmount || 0) / 100)}
-                            </div>
-                            <div className="text-xs text-green-500">
-                              You're owed
+                            
+                            <div className="text-right text-white">
+                              <div className="text-base font-bold text-white">
+                                +{formatCurrency((Number(balance.netAmount) || 0) / 100)}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                You're owed
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                
-                {/* Show message if no one owes you */}
-                {balances.userBalances.filter(b => b.userId !== currentMemberId && (b.netAmount || 0) > 0).length === 0 && (
+                      );
+                    })
+                ) : (
                   <div className="px-6 py-8 text-center">
-                    <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <p className="text-green-600 font-medium">No one owes you money</p>
-                    <p className="text-sm text-green-500 mt-1">Great! You're all caught up</p>
+                    <p className="text-white font-medium">No one owes you money</p>
+                    <p className="text-sm text-gray-500 mt-1">Great! You're all caught up</p>
                   </div>
                 )}
               </div>
@@ -344,63 +625,64 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
 
           {/* You Owe Section */}
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-            <div className="px-4 py-4 border-b border-gray-200 bg-red-50">
-              <h4 className="font-semibold text-red-800">You Owe</h4>
-              <p className="text-sm text-red-600 mt-1">People you owe money to</p>
+            <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
+              <h4 className="font-semibold text-white">You Owe</h4>
+              <p className="text-sm text-gray-500 mt-1">People you owe money to</p>
             </div>
             
             {balances?.userBalances ? (
               <div>
-                {balances.userBalances
-                  .filter(balance => balance.userId !== currentMemberId && (balance.netAmount || 0) < 0)
-                  .sort((a, b) => a.netBalance - b.netBalance)
-                  .map((balance) => {
-                    const member = (group.members || []).find(m => m.id === balance.userId);
-                    
-                    return (
-                      <div key={balance.userId} className="px-4 py-4 border-b border-gray-100 last:border-b-0">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center mr-3">
-                              <span className="text-sm font-medium text-red-700">
-                                {(member?.name || member?.email || 'Unknown').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <div className="font-medium text-gray-900">
-                                {member?.name || member?.email || 'Unknown'}
+                {balanceData.youOweList.length > 0 ? (
+                  balanceData.youOweList
+                    .sort((a, b) => (Number(a.netAmount) || 0) - (Number(b.netAmount) || 0))
+                    .map((balance) => {
+                      const member = (group.members || []).find(m => {
+                        const memberUserId = m.userId || m.user?.id;
+                        return memberUserId === balance.userId || m.id === balance.userId;
+                      });
+                      
+                      return (
+                        <div key={balance.userId} className="px-4 py-4 border-b border-gray-100 last:border-b-0">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+                                <span className="text-sm font-medium text-gray-700">
+                                  {(member?.name || member?.email || 'Unknown').charAt(0).toUpperCase()}
+                                </span>
                               </div>
-                              <div className="text-sm text-red-600">
-                                You owe {formatCurrency(Math.abs((balance.netAmount || 0) / 100))}
+                              <div>
+                                <div className="font-medium text-gray-900">
+                                  {member?.name || member?.email || 'Unknown'}
+                                </div>
+                                <div className="text-sm text-white">
+                                  You owe {formatCurrency(Math.abs((Number(balance.netAmount) || 0) / 100))}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                          
-                          <div className="text-right text-red-600">
-                            <div className="text-lg font-bold text-red-600">
-                              -{formatCurrency(Math.abs((balance.netAmount || 0) / 100))}
-                            </div>
-                            <div className="text-xs text-red-500">
-                              You owe
+                            
+                            <div className="text-right text-white">
+                              <div className="text-base font-bold text-white">
+                                -{formatCurrency(Math.abs((Number(balance.netAmount) || 0) / 100))}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                You owe
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                
-                {/* Show message if you don't owe anyone */}
-                {balances.userBalances.filter(b => b.userId !== currentMemberId && (b.netAmount || 0) < 0).length === 0 && (
+                      );
+                    })
+                ) : (
                   <div className="px-6 py-8 text-center">
-                    <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
                       </svg>
                     </div>
-                    <p className="text-red-600 font-medium">You don't owe anyone</p>
-                    <p className="text-sm text-red-500 mt-1">You're all paid up!</p>
+                    <p className="text-white font-medium">You don't owe anyone</p>
+                    <p className="text-sm text-gray-500 mt-1">You're all paid up!</p>
                   </div>
-                  )}
+                )}
               </div>
             ) : (
               <div className="px-6 py-8 text-center text-gray-500">
@@ -419,8 +701,20 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
 
       {/* Expenses List */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="px-4 py-4 border-b border-gray-200 bg-gray-50">
+        <div className="px-4 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
           <h4 className="font-semibold text-gray-900">Expenses</h4>
+          {/* Only show settle button if user owes money to someone */}
+          {balanceData.youOweTotal > 0 && (
+            <button
+              onClick={() => setShowSettlementSelection(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors flex items-center"
+            >
+              <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              </svg>
+              Settle
+            </button>
+          )}
         </div>
         {expenses.length === 0 ? (
           <div className="p-4 text-center text-gray-500">
@@ -432,51 +726,322 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
             <p>No expenses yet. Add your first expense to get started!</p>
           </div>
         ) : (
-          <div className="divide-y divide-gray-200">
-            {expenses.slice().reverse().map((expense) => {
-              const paidByMember = (group.members || []).find(m => m.id === expense.paidBy);
-              return (
-                <div key={expense.id} className="px-6 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <h5 className="font-medium text-gray-900">{expense.description}</h5>
-                        <span className="font-semibold text-gray-900">{formatCurrency(expense.amount)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm text-gray-500">
-                        <span>Paid by {paidByMember?.name || 'Unknown'}</span>
-                        <span>{new Date(expense.date).toLocaleDateString('en-AU')}</span>
-                      </div>
-                      {expense.splits && (
-                        <div className="mt-2 text-xs text-gray-400">
-                          Split: {expense.splits.map(split => {
-                            const member = (group.members || []).find(m => m.id === split.userId);
-                            return `${member?.name || 'Unknown'}: ${formatCurrency(split.amount)}`;
-                          }).join(', ')}
-                        </div>
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      {expense.settled ? (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Settled
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => handleSettleExpense(expense.id)}
-                          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 hover:bg-yellow-200 transition-colors"
-                        >
-                          Mark Settled
-                        </button>
-                      )}
-                    </div>
+          <div>
+            {/* Settlement Success Message */}
+            {settlementSuccess && (
+              <div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center mr-3">
+                    <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-white font-medium text-sm">
+                      You settled "{settlementSuccess.description}" - {formatCurrency(settlementSuccess.amount)}
+                    </p>
+                    <p className="text-gray-500 text-xs">Settlement completed successfully</p>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            )}
+            
+            <div className="bg-[#1E1E1E]">
+              {/* Combine settlements and expenses, then group by month */}
+              {(() => {
+                // Combine all items (settlements and expenses)
+                const allItems = [
+                  ...settlements.map(s => ({ ...s, type: 'settlement' })),
+                  ...expenses.map(e => ({ ...e, type: 'expense' }))
+                ];
+
+                // Sort by date (newest first)
+                allItems.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+                // Group by month
+                const groupedItems = allItems.reduce((groups, item) => {
+                  const date = new Date(item.date);
+                  const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+                  const monthName = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                  
+                  if (!groups[monthKey]) {
+                    groups[monthKey] = {
+                      monthName,
+                      items: []
+                    };
+                  }
+                  groups[monthKey].items.push(item);
+                  return groups;
+                }, {});
+
+                // Helper function to get expense icon
+                const getExpenseIcon = (description) => {
+                  const desc = description.toLowerCase();
+                  if (desc.includes('food') || desc.includes('restaurant') || desc.includes('meal')) {
+                    return (
+                      <svg className="w-4 h-4" fill="none" stroke="#BDBDBD" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-2.5 5M7 13l2.5 5m6-5v6a2 2 0 01-2 2H9a2 2 0 01-2-2v-6m8 0V9a2 2 0 00-2-2H9a2 2 0 00-2 2v4.01" />
+                      </svg>
+                    );
+                  } else if (desc.includes('rent') || desc.includes('housing')) {
+                    return (
+                      <svg className="w-4 h-4" fill="none" stroke="#BDBDBD" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                      </svg>
+                    );
+                  } else if (desc.includes('transport') || desc.includes('gas') || desc.includes('fuel')) {
+                    return (
+                      <svg className="w-4 h-4" fill="none" stroke="#BDBDBD" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                      </svg>
+                    );
+                  } else {
+                    return (
+                      <svg className="w-4 h-4" fill="none" stroke="#BDBDBD" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    );
+                  }
+                };
+
+                // Helper function to determine user's share and status
+                const getUserShareInfo = (item, currentMemberId) => {
+                  if (item.type === 'settlement') {
+                    return { status: 'settlement', amount: item.amount, color: '#BDBDBD' };
+                  }
+
+                  // Get the current member to find their user ID
+                  const currentMember = group.members?.find(m => m.id === currentMemberId);
+                  const currentUserId = currentMember?.userId || currentMember?.user?.id;
+
+                  // Debug logging
+                  console.log('🔍 Debug getUserShareInfo:', {
+                    expenseDescription: item.description,
+                    currentMemberId,
+                    currentUserId,
+                    currentMember: currentMember ? { id: currentMember.id, userId: currentMember.userId, user: currentMember.user } : null,
+                    expenseShares: item.shares,
+                    paidBy: item.paidBy,
+                    payerId: item.payerId,
+                    expenseId: item.id
+                  });
+
+                  // Find user's share in this expense using the actual user ID
+                  const userShare = item.shares?.find(share => share.userId === currentUserId);
+                  const paidByUser = item.paidBy === currentUserId || item.payerId === currentUserId;
+                  
+                  if (!userShare) {
+                    console.log('❌ User not involved - no share found:', {
+                      currentMemberId,
+                      availableShareUserIds: item.shares?.map(s => s.userId) || [],
+                      availableShares: item.shares?.map(s => ({ userId: s.userId, shareAmount: s.shareAmount, user: s.user })) || [],
+                      paidBy: item.payerId,
+                      expenseId: item.id
+                    });
+                    
+                    // Log each share individually for clarity
+                    console.log('🔍 Individual expense shares:');
+                    if (item.shares) {
+                      item.shares.forEach((share, index) => {
+                        console.log(`  Share ${index + 1}:`, {
+                          userId: share.userId,
+                          shareAmount: share.shareAmount,
+                          user: share.user ? { id: share.user.id, name: share.user.name, email: share.user.email } : null
+                        });
+                        // Log the full user object to see what's actually there
+                        console.log(`  Share ${index + 1} FULL USER OBJECT:`, share.user);
+                      });
+                    }
+                    
+                    // Try to find share by user email first, then by name
+                    const userEmail = user?.email?.toLowerCase();
+                    const userName = user?.displayName || user?.name || 'sarath'; // Fallback to common name
+                    
+                    let shareByEmail = item.shares?.find(share => 
+                      share.user?.email?.toLowerCase() === userEmail
+                    );
+                    
+                    // If no email match, try to match by name
+                    if (!shareByEmail) {
+                      shareByEmail = item.shares?.find(share => {
+                        const shareName = share.user?.name?.toLowerCase();
+                        return shareName && (
+                          shareName.includes('sarath') || 
+                          shareName.includes('chandra') ||
+                          shareName === userName.toLowerCase()
+                        );
+                      });
+                    }
+                    
+                    if (shareByEmail) {
+                      console.log('✅ Found share by email/name match:', {
+                        shareUserId: shareByEmail.userId,
+                        shareUserName: shareByEmail.user?.name,
+                        shareUserEmail: shareByEmail.user?.email,
+                        currentMemberId,
+                        currentUserId,
+                        currentUserEmail: userEmail,
+                        currentUserName: userName
+                      });
+                      
+                      // Use the share found by email/name
+                      const userShareAmount = (shareByEmail.shareAmount || 0) * 100; // Convert to cents
+                      const totalPaid = (item.amount || 0) * 100; // Convert to cents
+                      const paidByUser = item.paidBy === currentUserId || item.payerId === currentUserId;
+                      
+                      console.log('💰 Splitwise Logic Debug:', {
+                        totalPaid,
+                        userShareAmount,
+                        paidByUser,
+                        currentMemberId,
+                        currentUserId,
+                        paidBy: item.paidBy,
+                        payerId: item.payerId,
+                        expenseDescription: item.description,
+                        paidByMatches: item.paidBy === currentUserId,
+                        payerIdMatches: item.payerId === currentUserId,
+                        paidByType: typeof item.paidBy,
+                        payerIdType: typeof item.payerId,
+                        currentUserIdType: typeof currentUserId
+                      });
+                      
+                      if (paidByUser) {
+                        const lentAmount = totalPaid - userShareAmount;
+                        console.log('💚 You paid - calculating lent amount:', {
+                          totalPaid,
+                          userShareAmount,
+                          lentAmount,
+                          status: lentAmount > 0 ? 'you lent' : 'settled'
+                        });
+                        return { 
+                          status: lentAmount > 0 ? 'you lent' : 'settled', 
+                          amount: lentAmount, 
+                          color: lentAmount > 0 ? '#4CAF50' : '#BDBDBD' 
+                        };
+                      } else {
+                        console.log('🧡 Someone else paid - you borrowed:', {
+                          userShareAmount,
+                          status: 'you borrowed'
+                        });
+                        return { 
+                          status: 'you borrowed', 
+                          amount: userShareAmount, 
+                          color: '#FF9800' 
+                        };
+                      }
+                    }
+                    
+                    return { status: 'not involved', amount: 0, color: '#BDBDBD' };
+                  }
+
+                  const userShareAmount = (userShare.shareAmount || 0) * 100; // Convert to cents
+                  const totalPaid = (item.amount || 0) * 100; // Convert to cents
+                  
+                  console.log('✅ Found direct user share:', {
+                    currentMemberId,
+                    currentUserId,
+                    userShareAmount,
+                    totalPaid,
+                    paidByUser,
+                    paidBy: item.paidBy,
+                    payerId: item.payerId
+                  });
+                  
+                  if (paidByUser) {
+                    // User paid, so they lent money
+                    const lentAmount = totalPaid - userShareAmount;
+                    console.log('💚 You paid - calculating lent amount:', {
+                      totalPaid,
+                      userShareAmount,
+                      lentAmount,
+                      status: lentAmount > 0 ? 'you lent' : 'settled'
+                    });
+                    return { 
+                      status: lentAmount > 0 ? 'you lent' : 'settled', 
+                      amount: lentAmount, 
+                      color: lentAmount > 0 ? '#4CAF50' : '#BDBDBD' 
+                    };
+                  } else {
+                    // User didn't pay, so they borrowed
+                    console.log('🧡 Someone else paid - you borrowed:', {
+                      userShareAmount,
+                      status: 'you borrowed'
+                    });
+                    return { 
+                      status: 'you borrowed', 
+                      amount: userShareAmount, 
+                      color: '#FF9800' 
+                    };
+                  }
+                };
+
+                // Render grouped items
+                return Object.values(groupedItems).map((group, groupIndex) => (
+                  <div key={groupIndex} className="bg-[#1E1E1E]">
+                    {/* Month Header */}
+                    <div className="px-6 py-4 bg-[#004D40]">
+                      <h3 className="text-base font-normal text-[#E0E0E0]">{group.monthName}</h3>
+                    </div>
+                    
+                    {/* Items in this month */}
+                    {group.items.map((item) => {
+                      const shareInfo = getUserShareInfo(item, currentMemberId);
+                      // Find the member who paid by matching their user ID with the expense's paidBy/payerId
+                      const paidByMember = (group.members || []).find(m => {
+                        const memberUserId = m.userId || m.user?.id;
+                        return memberUserId === item.paidBy || memberUserId === item.payerId;
+                      });
+                      const date = new Date(item.date);
+                      const monthAbbr = date.toLocaleDateString('en-US', { month: 'short' });
+                      const day = date.getDate();
+
+                      return (
+                        <div key={item.id} className="px-6 py-4 border-b border-gray-700">
+                          <div className="flex items-center">
+                            {/* Column 1: Date & Icon */}
+                            <div className="flex flex-col items-center mr-4 w-12">
+                              <div className="text-xs text-[#BDBDBD] font-normal">{monthAbbr}</div>
+                              <div className="text-lg font-bold text-[#E0E0E0]">{day}</div>
+                              <div className="mt-1">
+                                {getExpenseIcon(item.description)}
+                              </div>
+                            </div>
+
+                            {/* Column 2: Description */}
+                            <div className="flex-1 mr-4">
+                              <div className="font-semibold text-[#E0E0E0] text-base mb-1">
+                                {item.description}
+                              </div>
+                              <div className="text-sm text-[#BDBDBD] font-normal">
+                                {item.type === 'settlement' 
+                                  ? 'Settlement completed'
+                                  : `${paidByMember?.name || 'Unknown'} paid ${formatCurrency(item.amount)}`
+                                }
+                              </div>
+                            </div>
+
+                            {/* Column 3: Status & Amount */}
+                            <div className="text-right w-24">
+                              <div className="text-xs font-normal mb-1" style={{ color: shareInfo.color }}>
+                                {shareInfo.status}
+                              </div>
+                              <div className="font-bold text-sm" style={{ color: shareInfo.color }}>
+                                {Math.abs(shareInfo.amount) > 0 ? `A$${(Math.abs(shareInfo.amount) / 100).toFixed(2)}` : ''}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ));
+              })()}
+            </div>
           </div>
         )}
       </div>
+
+
 
              {/* Add Expense Form */}
        {showAddExpense && (
@@ -489,15 +1054,6 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick }) =>
          </div>
        )}
 
-      {/* Add Member Modal */}
-      {showAddMember && (
-        <AddMemberModal
-          isOpen={showAddMember}
-          onClose={() => setShowAddMember(false)}
-          onMemberAdded={handleAddMember}
-          group={group}
-        />
-      )}
 
       {/* Send Invite Modal */}
       {showSendInvite && (
