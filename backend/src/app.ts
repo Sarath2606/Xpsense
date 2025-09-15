@@ -170,7 +170,7 @@ app.use('/api/transactions', transactionRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/consents', consentRoutes);
 app.use('/api/splitwise', splitwiseRoutes);
-// app.use('/api/splitwise', splitwiseInvitesRoutes);
+app.use('/api/splitwise', splitwiseInvitesRoutes);
 
 // Error handling middleware
 app.use(notFoundHandler);

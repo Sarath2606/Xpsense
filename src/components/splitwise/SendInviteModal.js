@@ -17,6 +17,17 @@ const SendInviteModal = ({ isOpen, onClose, onInviteSent, group }) => {
       return;
     }
 
+    // Client-side pre-check: prevent inviting existing members
+    const inviteEmail = email.trim().toLowerCase();
+    const isAlreadyMember = (group?.members || []).some((member) => {
+      const memberEmail = ((member.email || member.user?.email) || '').toLowerCase();
+      return memberEmail && memberEmail === inviteEmail;
+    });
+    if (isAlreadyMember) {
+      setError('User is already a member of this group');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 

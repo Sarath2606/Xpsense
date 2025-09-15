@@ -329,8 +329,8 @@ export class SplitwiseInvitesController {
     groupId: string;
   }) {
     try {
-      // Configure email transporter (you'll need to set up your email service)
-             const transporter = nodemailer.createTransport({
+      // Configure email transporter (Gmail SMTP)
+      const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: parseInt(process.env.SMTP_PORT || '587'),
         secure: false,
@@ -339,6 +339,20 @@ export class SplitwiseInvitesController {
           pass: process.env.SMTP_PASS
         }
       });
+
+      // Verify transporter to surface credential/connectivity errors early
+      try {
+        await transporter.verify();
+        console.log('SMTP transporter verified successfully with host:', process.env.SMTP_HOST || 'smtp.gmail.com');
+      } catch (verifyError) {
+        console.error('SMTP transporter verification failed:', {
+          code: (verifyError as any)?.code,
+          command: (verifyError as any)?.command,
+          response: (verifyError as any)?.response,
+          message: (verifyError as Error)?.message,
+        });
+        throw verifyError;
+      }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
@@ -392,7 +406,7 @@ export class SplitwiseInvitesController {
       `;
 
       await transporter.sendMail({
-        from: process.env.SMTP_FROM || 'noreply@xpenses.com',
+        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@xpenses.com',
         to,
         subject: `You're invited to join "${groupName}" on Xpenses`,
         html: emailContent
@@ -400,7 +414,15 @@ export class SplitwiseInvitesController {
 
       console.log(`Invitation email sent to ${to} for group ${groupName}`);
     } catch (error) {
-      console.error('Failed to send invitation email:', error);
+      const errAny = error as any;
+      console.error('Failed to send invitation email:', {
+        message: errAny?.message,
+        code: errAny?.code,
+        command: errAny?.command,
+        response: errAny?.response,
+        responseCode: errAny?.responseCode,
+        stack: errAny?.stack,
+      });
       // Don't throw error - invitation is still created in database
     }
   }
