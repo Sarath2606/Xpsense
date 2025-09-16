@@ -21,8 +21,14 @@ export const authenticateFirebaseToken = async (
   next: NextFunction
 ) => {
   try {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    // Accept token from several common header names and formats
+    const rawAuth = (req.headers.authorization as string)
+      || (req.headers['x-authorization'] as string)
+      || (req.headers['x-access-token'] as string)
+      || '';
+    const token = rawAuth
+      ? (rawAuth.startsWith('Bearer ') ? rawAuth.substring('Bearer '.length) : rawAuth)
+      : undefined;
 
     if (!token) {
       // In development mode, create a mock user even without a token
