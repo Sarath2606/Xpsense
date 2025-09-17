@@ -137,6 +137,10 @@ export class SplitwiseInvitesController {
         }
       });
 
+      // Build accept URL to return to client regardless of email delivery
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
+
       // Fire-and-forget email sending so the API responds immediately
       SplitwiseInvitesController.sendInvitationEmail({
         to: email.trim(),
@@ -155,7 +159,8 @@ export class SplitwiseInvitesController {
           id: invitation.id,
           email: invitation.email,
           expiresAt: invitation.expiresAt
-        }
+        },
+        acceptUrl
       });
     } catch (error) {
       console.error("Send invite error", error);
