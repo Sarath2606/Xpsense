@@ -22,6 +22,7 @@ const webhooks_routes_1 = __importDefault(require("./routes/webhooks.routes"));
 const consent_routes_1 = __importDefault(require("./routes/consent.routes"));
 const splitwise_routes_1 = __importDefault(require("./routes/splitwise.routes"));
 const firebase_1 = require("./config/firebase");
+const splitwise_invites_routes_1 = __importDefault(require("./routes/splitwise-invites.routes"));
 const error_middleware_1 = require("./middleware/error.middleware");
 dotenv_1.default.config({ path: path_1.default.resolve(__dirname, '../env.local') });
 const app = (0, express_1.default)();
@@ -140,6 +141,7 @@ app.use('/api/transactions', transactions_routes_1.default);
 app.use('/api/webhooks', webhooks_routes_1.default);
 app.use('/api/consents', consent_routes_1.default);
 app.use('/api/splitwise', splitwise_routes_1.default);
+app.use('/api/splitwise', splitwise_invites_routes_1.default);
 app.use(error_middleware_1.notFoundHandler);
 app.use(error_middleware_1.errorHandler);
 server.listen(PORT, () => {

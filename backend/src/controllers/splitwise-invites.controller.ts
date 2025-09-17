@@ -8,6 +8,53 @@ const prisma = new PrismaClient();
 
 export class SplitwiseInvitesController {
   /**
+   * Check SMTP configuration health
+   * GET /api/splitwise/invites/health
+   */
+  static async checkSmtpHealth(req: Request, res: Response) {
+    try {
+      const smtpConfig = {
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT || '587'),
+        user: process.env.SMTP_USER ? 'configured' : 'missing',
+        from: process.env.SMTP_FROM ? 'configured' : 'missing',
+        pass: process.env.SMTP_PASS ? 'configured' : 'missing'
+      };
+
+      // Test SMTP connection
+      const transporter = nodemailer.createTransport({
+        host: smtpConfig.host,
+        port: smtpConfig.port,
+        secure: false,
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS
+        }
+      });
+
+      try {
+        await transporter.verify();
+        res.json({
+          status: 'healthy',
+          smtp: smtpConfig,
+          message: 'SMTP configuration is working correctly'
+        });
+      } catch (verifyError) {
+        res.status(500).json({
+          status: 'unhealthy',
+          smtp: smtpConfig,
+          error: (verifyError as Error).message
+        });
+      }
+    } catch (error) {
+      res.status(500).json({
+        status: 'error',
+        error: (error as Error).message
+      });
+    }
+  }
+
+  /**
    * Send invitation to join a group
    * POST /api/splitwise/groups/:id/invites
    */

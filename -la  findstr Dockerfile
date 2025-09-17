@@ -1,0 +1,5 @@
+[33m7ba1fb1b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m fix: add proper Dockerfile and .dockerignore to resolve Railway build issues
+[33me3f283c6[m feat: enable Gmail SMTP invites, add invites routes, frontend pre-check; env docs
+[33m6db2e615[m Splitwise: mute 403 noise on stale group cleanup; add silent checkExists
+[33md36c80e4[m Move members list to group settings page and fix member name display
+[33m3f50f004[m Fix WebSocket connection issues and improve real-time functionality

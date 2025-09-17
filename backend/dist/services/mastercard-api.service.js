@@ -17,12 +17,18 @@ exports.CDR_SCOPES = {
     PROFILE: 'profile'
 };
 class MastercardApiService {
+    client;
+    baseUrl;
+    clientId;
+    clientSecret;
+    partnerId;
+    appToken;
+    isSandboxDown = false;
+    lastHealthCheck = 0;
+    HEALTH_CHECK_INTERVAL = 5 * 60 * 1000;
+    MAX_RETRIES = 5;
+    INITIAL_BACKOFF_MS = 400;
     constructor() {
-        this.isSandboxDown = false;
-        this.lastHealthCheck = 0;
-        this.HEALTH_CHECK_INTERVAL = 5 * 60 * 1000;
-        this.MAX_RETRIES = 5;
-        this.INITIAL_BACKOFF_MS = 400;
         this.baseUrl = process.env.MASTERCARD_API_BASE_URL || 'https://api.openbanking.mastercard.com.au';
         this.clientId = process.env.MASTERCARD_CLIENT_ID || '5ad34a4227b6c585beaa8dc7e1d2d2f5';
         this.clientSecret = process.env.MASTERCARD_CLIENT_SECRET || 'QFgTbpYOHHPBU8xfFZ5p';

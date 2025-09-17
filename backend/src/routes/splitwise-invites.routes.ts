@@ -4,7 +4,10 @@ import { authenticateFirebaseToken } from '../middleware/firebase-auth.middlewar
 
 const router = Router();
 
-// All routes require Firebase authentication
+// SMTP health check (no auth required for debugging)
+router.get('/invites/health', SplitwiseInvitesController.checkSmtpHealth);
+
+// All other routes require Firebase authentication
 router.use(authenticateFirebaseToken);
 
 // Send invitation to join a group

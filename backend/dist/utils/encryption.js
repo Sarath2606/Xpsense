@@ -8,6 +8,7 @@ const crypto_1 = __importDefault(require("crypto"));
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'your-32-character-encryption-key-here';
 const ALGORITHM = 'aes-256-cbc';
 class Encryption {
+    static key = Buffer.from(ENCRYPTION_KEY, 'utf8');
     static encrypt(text) {
         try {
             const iv = crypto_1.default.randomBytes(16);
@@ -42,5 +43,4 @@ class Encryption {
     }
 }
 exports.Encryption = Encryption;
-Encryption.key = Buffer.from(ENCRYPTION_KEY, 'utf8');
 //# sourceMappingURL=encryption.js.map

@@ -9,6 +9,47 @@ const crypto_1 = __importDefault(require("crypto"));
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const prisma = new client_1.PrismaClient();
 class SplitwiseInvitesController {
+    static async checkSmtpHealth(req, res) {
+        try {
+            const smtpConfig = {
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
+                port: parseInt(process.env.SMTP_PORT || '587'),
+                user: process.env.SMTP_USER ? 'configured' : 'missing',
+                from: process.env.SMTP_FROM ? 'configured' : 'missing',
+                pass: process.env.SMTP_PASS ? 'configured' : 'missing'
+            };
+            const transporter = nodemailer_1.default.createTransport({
+                host: smtpConfig.host,
+                port: smtpConfig.port,
+                secure: false,
+                auth: {
+                    user: process.env.SMTP_USER,
+                    pass: process.env.SMTP_PASS
+                }
+            });
+            try {
+                await transporter.verify();
+                res.json({
+                    status: 'healthy',
+                    smtp: smtpConfig,
+                    message: 'SMTP configuration is working correctly'
+                });
+            }
+            catch (verifyError) {
+                res.status(500).json({
+                    status: 'unhealthy',
+                    smtp: smtpConfig,
+                    error: verifyError.message
+                });
+            }
+        }
+        catch (error) {
+            res.status(500).json({
+                status: 'error',
+                error: error.message
+            });
+        }
+    }
     static async sendInvite(req, res) {
         try {
             const { id } = req.params;
@@ -255,6 +296,19 @@ class SplitwiseInvitesController {
                     pass: process.env.SMTP_PASS
                 }
             });
+            try {
+                await transporter.verify();
+                console.log('SMTP transporter verified successfully with host:', process.env.SMTP_HOST || 'smtp.gmail.com');
+            }
+            catch (verifyError) {
+                console.error('SMTP transporter verification failed:', {
+                    code: verifyError?.code,
+                    command: verifyError?.command,
+                    response: verifyError?.response,
+                    message: verifyError?.message,
+                });
+                throw verifyError;
+            }
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
             const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
             const emailContent = `
@@ -305,7 +359,7 @@ class SplitwiseInvitesController {
         </div>
       `;
             await transporter.sendMail({
-                from: process.env.SMTP_FROM || 'noreply@xpenses.com',
+                from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@xpenses.com',
                 to,
                 subject: `You're invited to join "${groupName}" on Xpenses`,
                 html: emailContent
@@ -313,7 +367,15 @@ class SplitwiseInvitesController {
             console.log(`Invitation email sent to ${to} for group ${groupName}`);
         }
         catch (error) {
-            console.error('Failed to send invitation email:', error);
+            const errAny = error;
+            console.error('Failed to send invitation email:', {
+                message: errAny?.message,
+                code: errAny?.code,
+                command: errAny?.command,
+                response: errAny?.response,
+                responseCode: errAny?.responseCode,
+                stack: errAny?.stack,
+            });
         }
     }
 }
