@@ -1,19 +1,25 @@
+# Git and editor
 .git
+.gitignore
+.vscode
+
+# Dependencies and builds
 node_modules
-**/node_modules
-dist
+backend/node_modules
 **/dist
 build
-**/build
+
+# Caches and logs
+.cache
+.next
+coverage
+*.log
+
+# Env files
 .env
-.env.*
 backend/.env
-backend/.env.*
 backend/env.local
+
+# OS cruft
 .DS_Store
 Thumbs.db
-.vscode/
-.idea/
-*.swp
-coverage/
-*.tsbuildinfo
