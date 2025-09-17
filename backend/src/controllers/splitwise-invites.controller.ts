@@ -13,23 +13,28 @@ export class SplitwiseInvitesController {
    */
   static async checkSmtpHealth(req: Request, res: Response) {
     try {
+      const secure = (process.env.SMTP_SECURE || '').toLowerCase() === 'true';
       const smtpConfig = {
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT || '587'),
+        port: parseInt(process.env.SMTP_PORT || (secure ? '465' : '587')),
         user: process.env.SMTP_USER ? 'configured' : 'missing',
         from: process.env.SMTP_FROM ? 'configured' : 'missing',
-        pass: process.env.SMTP_PASS ? 'configured' : 'missing'
+        pass: process.env.SMTP_PASS ? 'configured' : 'missing',
+        secure
       };
 
-      // Test SMTP connection
       const transporter = nodemailer.createTransport({
         host: smtpConfig.host,
         port: smtpConfig.port,
-        secure: false,
+        secure: smtpConfig.secure,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS
-        }
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 10000,
+        tls: smtpConfig.secure ? undefined : { rejectUnauthorized: false }
       });
 
       try {
@@ -72,7 +77,6 @@ export class SplitwiseInvitesController {
         return res.status(400).json({ error: "Email is required" });
       }
 
-      // Check if user is admin of the group
       const membership = await prisma.splitwiseGroupMember.findUnique({
         where: { 
           groupId_userId: { 
@@ -86,7 +90,6 @@ export class SplitwiseInvitesController {
         return res.status(403).json({ error: "Only group admins can send invitations" });
       }
 
-      // Get group details
       const group = await prisma.splitwiseGroup.findUnique({
         where: { id },
         include: {
@@ -100,12 +103,10 @@ export class SplitwiseInvitesController {
         return res.status(404).json({ error: "Group not found" });
       }
 
-      // Check if user already exists
       const existingUser = await prisma.user.findUnique({
         where: { email: email.trim().toLowerCase() }
       });
 
-      // Check if user is already a member
       if (existingUser) {
         const existingMember = await prisma.splitwiseGroupMember.findUnique({
           where: { 
@@ -121,11 +122,10 @@ export class SplitwiseInvitesController {
         }
       }
 
-      // Generate invitation token
+      // Generate and store invitation
       const token = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-      // Create invitation record
       const invitation = await prisma.splitwiseInvite.create({
         data: {
           groupId: id,
@@ -137,18 +137,20 @@ export class SplitwiseInvitesController {
         }
       });
 
-      // Send invitation email
-      await SplitwiseInvitesController.sendInvitationEmail({
+      // Fire-and-forget email sending so the API responds immediately
+      SplitwiseInvitesController.sendInvitationEmail({
         to: email.trim(),
         groupName: group.name,
         inviterName: group.creator.name || 'Group Admin',
         token,
         message: message?.trim(),
         groupId: id
+      }).catch((err) => {
+        console.error('Background email send failed:', err);
       });
 
-      res.status(201).json({
-        message: "Invitation sent successfully",
+      return res.status(201).json({
+        message: "Invitation created; email delivery processing in background",
         invitation: {
           id: invitation.id,
           email: invitation.email,
@@ -156,8 +158,8 @@ export class SplitwiseInvitesController {
         }
       });
     } catch (error) {
-      console.error("Send invite error:", error);
-      res.status(500).json({ error: "Failed to send invitation" });
+      console.error("Send invite error", error);
+      return res.status(500).json({ error: "Failed to send invitation" });
     }
   }
 
@@ -178,7 +180,6 @@ export class SplitwiseInvitesController {
         return res.status(400).json({ error: "Invitation token is required" });
       }
 
-      // Find invitation
       const invitation = await prisma.splitwiseInvite.findFirst({
         where: {
           token,
@@ -204,7 +205,6 @@ export class SplitwiseInvitesController {
         return res.status(404).json({ error: "Invalid or expired invitation" });
       }
 
-      // Check if user is already a member
       const existingMember = await prisma.splitwiseGroupMember.findUnique({
         where: { 
           groupId_userId: { 
@@ -218,7 +218,6 @@ export class SplitwiseInvitesController {
         return res.status(400).json({ error: "You are already a member of this group" });
       }
 
-      // Add user to group
       const newMember = await prisma.splitwiseGroupMember.create({
         data: {
           groupId: invitation.groupId,
@@ -232,7 +231,6 @@ export class SplitwiseInvitesController {
         }
       });
 
-      // Mark invitation as accepted
       await prisma.splitwiseInvite.update({
         where: { id: invitation.id },
         data: { accepted: true, acceptedAt: new Date() }
@@ -376,18 +374,23 @@ export class SplitwiseInvitesController {
     groupId: string;
   }) {
     try {
-      // Configure email transporter (Gmail SMTP)
+      const secure = (process.env.SMTP_SECURE || '').toLowerCase() === 'true';
       const transporter = nodemailer.createTransport({
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT || '587'),
-        secure: false,
+        port: parseInt(process.env.SMTP_PORT || (secure ? '465' : '587')),
+        secure: secure,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS
-        }
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 10000,
+        // For many PaaS providers, STARTTLS with relaxed certs can help
+        tls: secure ? undefined : { rejectUnauthorized: false }
       });
 
-      // Verify transporter to surface credential/connectivity errors early
+      // Best-effort verify with a short timeout; do not block excessively
       try {
         await transporter.verify();
         console.log('SMTP transporter verified successfully with host:', process.env.SMTP_HOST || 'smtp.gmail.com');
@@ -398,7 +401,7 @@ export class SplitwiseInvitesController {
           response: (verifyError as any)?.response,
           message: (verifyError as Error)?.message,
         });
-        throw verifyError;
+        // Proceed anyway; sendMail may still succeed if verification failed due to transient networking
       }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -410,20 +413,16 @@ export class SplitwiseInvitesController {
             <h1 style="margin: 0; font-size: 28px;">You're Invited!</h1>
             <p style="margin: 10px 0 0 0; font-size: 16px;">Join the expense sharing group</p>
           </div>
-          
           <div style="padding: 30px; background: white;">
             <h2 style="color: #333; margin-bottom: 20px;">${groupName}</h2>
-            
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
               <strong>${inviterName}</strong> has invited you to join their expense sharing group on Xpenses.
             </p>
-            
             ${message ? `
               <div style="background: #f8f9fa; padding: 15px; border-left: 4px solid #667eea; margin-bottom: 20px;">
                 <p style="margin: 0; color: #555; font-style: italic;">"${message}"</p>
               </div>
             ` : ''}
-            
             <div style="text-align: center; margin: 30px 0;">
               <a href="${acceptUrl}" 
                  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -436,13 +435,11 @@ export class SplitwiseInvitesController {
                 Accept Invitation
               </a>
             </div>
-            
             <p style="color: #999; font-size: 14px; text-align: center;">
               This invitation will expire in 7 days.<br>
               If you don't have an account, you'll be prompted to create one when you accept.
             </p>
           </div>
-          
           <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px;">
             <p style="margin: 0;">
               This invitation was sent from Xpenses - Your Personal Finance Manager<br>
@@ -470,7 +467,7 @@ export class SplitwiseInvitesController {
         responseCode: errAny?.responseCode,
         stack: errAny?.stack,
       });
-      // Don't throw error - invitation is still created in database
+      // Swallow email errors; the API response already returned
     }
   }
 }

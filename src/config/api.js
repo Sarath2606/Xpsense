@@ -59,23 +59,33 @@ class ApiService {
     return headers;
   }
 
-  // Generic API request method with retry logic
+  // Generic API request method with retry logic and timeout
   async request(endpoint, options = {}) {
     const isSilent = options.silent === true;
     const maxRetries = options.maxRetries !== undefined ? options.maxRetries : (isSilent ? 0 : 2); // No retries for silent checks
     const baseDelay = options.baseDelay || 2000; // Increased from 1000 to 2000ms
+    const timeoutMs = options.timeoutMs || 15000; // default 15s timeout
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      // Setup timeout controller per attempt
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
       try {
         const url = `${this.baseURL}${endpoint}`;
         const headers = await this.getHeaders(options.includeAuth !== false);
         
+        const { signal } = controller;
+        const { silent, maxRetries: _mr, baseDelay: _bd, timeoutMs: _tm, ...rest } = options;
+
         const config = {
           headers,
-          ...options,
+          signal,
+          ...rest,
         };
 
         const response = await fetch(url, config);
+        clearTimeout(timeoutId);
         
         // Handle 401 Unauthorized
         if (response.status === 401) {
@@ -111,12 +121,14 @@ class ApiService {
         // Return JSON response
         return await response.json();
       } catch (error) {
+        clearTimeout(timeoutId);
         if (attempt === maxRetries) {
           if (!isSilent) console.error('API Request Error:', error);
           throw error;
         }
         // For non-retryable errors, throw immediately
         if (
+          error.name === 'AbortError' ||
           error.message.includes('Unauthorized') ||
           error.message.includes('Rate limit exceeded') ||
           error.name === 'ServiceUnavailable' ||
@@ -392,12 +404,16 @@ class ApiService {
         this.request(`/splitwise/groups/${groupId}/invites`, {
           method: 'POST',
           body: JSON.stringify(inviteData),
+          maxRetries: 0,
+          timeoutMs: 8000,
         }),
 
       acceptInvite: (token) => 
         this.request('/splitwise/invites/accept', {
           method: 'POST',
           body: JSON.stringify({ token }),
+          maxRetries: 0,
+          timeoutMs: 8000,
         }),
 
       getPendingInvites: () => 
@@ -406,6 +422,8 @@ class ApiService {
       cancelInvite: (inviteId) => 
         this.request(`/splitwise/invites/${inviteId}`, {
           method: 'DELETE',
+          maxRetries: 0,
+          timeoutMs: 8000,
         }),
     },
 
