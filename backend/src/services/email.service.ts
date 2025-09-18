@@ -119,7 +119,7 @@ export class EmailService {
       const msg = {
         to: to,
         from: {
-          email: 'noreply@xpsense.vercel.app',
+          email: 'xxpensetracker@gmail.com',
           name: 'Xpenses Team'
         },
         subject: `Invitation to join "${groupName}" expense group`,
