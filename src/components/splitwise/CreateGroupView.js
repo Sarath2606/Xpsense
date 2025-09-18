@@ -118,12 +118,12 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
     setShowInvitationResults(false);
 
     try {
-      // Step 1: Create the group
+      // Step 1: Create the group (only with the creator, not other members)
       const groupData = {
         name: groupName.trim(),
         type: groupType,
         currencyCode: currency,
-        members
+        members: [members.find(member => member.id === 'current_user')] // Only include the current user
       };
       
       console.log('🚀 Creating group with data:', groupData);
