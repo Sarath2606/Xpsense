@@ -117,7 +117,7 @@ export class EmailService {
 
       const msg = {
         to: to,
-        from: process.env.SMTP_FROM || 'noreply@xpenses.com',
+        from: process.env.SMTP_FROM || 'xxpensetracker@gmail.com',
         subject: `You're invited to join "${groupName}" on Xpenses`,
         html: emailContent,
       };
