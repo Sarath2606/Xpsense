@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import sgMail from '@sendgrid/mail';
+import { EmailTemplateService } from './email-template.service';
 
 export class EmailService {
   /**
@@ -117,8 +118,11 @@ export class EmailService {
 
       const msg = {
         to: to,
-        from: process.env.SMTP_FROM || 'xxpensetracker@gmail.com',
-        subject: `You're invited to join "${groupName}" on Xpenses`,
+        from: {
+          email: 'noreply@xpsense.vercel.app',
+          name: 'Xpenses Team'
+        },
+        subject: `Invitation to join "${groupName}" expense group`,
         html: emailContent,
       };
 
