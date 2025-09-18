@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import ProfilePicture from '../common/ProfilePicture';
+import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 
 const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
   const [groupName, setGroupName] = useState('');
@@ -15,6 +17,11 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
   const [newMemberName, setNewMemberName] = useState('');
   const [newMemberEmail, setNewMemberEmail] = useState('');
   const [memberError, setMemberError] = useState('');
+  const [isCreating, setIsCreating] = useState(false);
+  const [invitationStatus, setInvitationStatus] = useState({});
+  const [showInvitationResults, setShowInvitationResults] = useState(false);
+  
+  const { groups: groupsApi, invites: invitesApi } = useSplitwiseApi();
 
   const groupTypes = [
     { id: 'trip', name: 'Trip', icon: 'airplane' },
@@ -97,30 +104,89 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setMemberError('');
     
-    if (groupName.trim() && members.length > 1) {
-      onCreateGroup({
+    if (!groupName.trim() || members.length < 2) {
+      return;
+    }
+
+    setIsCreating(true);
+    setInvitationStatus({});
+    setShowInvitationResults(false);
+
+    try {
+      // Step 1: Create the group
+      const groupData = {
         name: groupName.trim(),
         type: groupType,
         currencyCode: currency,
         members
-      });
-      // Reset form
-      setGroupName('');
-      setGroupType('home');
-      setCurrency('AUD');
-      setMembers([{ 
-        id: 'current_user', 
-        name: currentUser?.displayName || currentUser?.email || 'You', 
-        email: currentUser?.email || 'you@email.com', 
-        role: 'admin' 
-      }]);
-      setNewMemberName('');
-      setNewMemberEmail('');
-      setMemberError('');
+      };
+      
+      const response = await groupsApi.create(groupData);
+      const createdGroup = response.group;
+      
+      // Step 2: Send invitations to all non-current-user members
+      const membersToInvite = members.filter(member => member.id !== 'current_user');
+      const invitationResults = {};
+      
+      if (membersToInvite.length > 0) {
+        setShowInvitationResults(true);
+        
+        // Send invitations in parallel
+        const invitationPromises = membersToInvite.map(async (member) => {
+          try {
+            const inviteResponse = await invitesApi.sendInvite(createdGroup.id, {
+              email: member.email,
+              message: `You've been invited to join "${groupName.trim()}" group!`
+            });
+            invitationResults[member.email] = { 
+              status: 'success', 
+              message: 'Invitation sent successfully',
+              invitation: inviteResponse.invitation
+            };
+          } catch (error) {
+            console.error(`Failed to send invitation to ${member.email}:`, error);
+            invitationResults[member.email] = { 
+              status: 'error', 
+              message: error.message || 'Failed to send invitation'
+            };
+          }
+        });
+        
+        // Wait for all invitations to complete
+        await Promise.all(invitationPromises);
+        setInvitationStatus(invitationResults);
+      }
+      
+      // Step 3: Call the original onCreateGroup callback with the created group
+      onCreateGroup(createdGroup);
+      
+      // Step 4: Reset form after a short delay to show results
+      setTimeout(() => {
+        setGroupName('');
+        setGroupType('home');
+        setCurrency('AUD');
+        setMembers([{ 
+          id: 'current_user', 
+          name: currentUser?.displayName || currentUser?.email || 'You', 
+          email: currentUser?.email || 'you@email.com', 
+          role: 'admin' 
+        }]);
+        setNewMemberName('');
+        setNewMemberEmail('');
+        setMemberError('');
+        setInvitationStatus({});
+        setShowInvitationResults(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Failed to create group:', error);
+      setMemberError(error.message || 'Failed to create group. Please try again.');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -270,15 +336,12 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                   return (
                   <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                        member.role === 'admin' ? 'bg-purple-100' : 'bg-gray-100'
-                      }`}>
-                        <span className={`font-medium text-sm ${
-                          member.role === 'admin' ? 'text-purple-600' : 'text-gray-600'
-                        }`}>
-                          {displayName.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
+                      <ProfilePicture
+                        email={userEmail}
+                        name={displayName}
+                        size="sm"
+                        isAdmin={member.role === 'admin'}
+                      />
                       <div>
                         <div className="flex items-center space-x-2">
                           <span className="font-medium text-sm">{displayName}</span>
@@ -312,7 +375,7 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
             {/* Add New Member */}
             <div className="space-y-3">
               <div className="text-sm text-gray-600 mb-2">
-                Add members to your group. You can add as many members as you need.
+                Add members to your group. Email invitations will be sent automatically when you create the group.
               </div>
               <div className="space-y-2">
                 <input
@@ -362,6 +425,24 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                 </svg>
                 <span>Add Member</span>
               </button>
+              
+              {/* Info Box */}
+              {members.length > 1 && (
+                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="w-5 h-5 text-blue-500 mr-2 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm text-blue-800">
+                      <div className="font-medium mb-1">Ready to create your group!</div>
+                      <p className="text-xs">
+                        When you click "Create Group", we'll automatically send email invitations to all {members.length - 1} member{members.length - 1 !== 1 ? 's' : ''} you've added. 
+                        They'll receive a link to join your group.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -376,15 +457,78 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
             </button>
             <button
               type="submit"
-              disabled={!groupName.trim() || members.length < 2}
-              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition-colors"
+              disabled={!groupName.trim() || members.length < 2 || isCreating}
+              className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-purple-700 transition-colors flex items-center justify-center"
             >
-              Create Group ({members.length} member{members.length !== 1 ? 's' : ''})
+              {isCreating ? (
+                <>
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Creating Group & Sending Invitations...
+                </>
+              ) : (
+                `Create Group & Send Invitations (${members.length} member${members.length !== 1 ? 's' : ''})`
+              )}
             </button>
           </div>
         </form>
+
+        {/* Invitation Results */}
+        {showInvitationResults && Object.keys(invitationStatus).length > 0 && (
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <h3 className="text-lg font-semibold text-blue-900 mb-3 flex items-center">
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              Invitation Results
+            </h3>
+            <div className="space-y-2">
+              {Object.entries(invitationStatus).map(([email, result]) => (
+                <div key={email} className={`flex items-center justify-between p-3 rounded-lg ${
+                  result.status === 'success' 
+                    ? 'bg-green-50 border border-green-200' 
+                    : 'bg-red-50 border border-red-200'
+                }`}>
+                  <div className="flex items-center">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center mr-3 ${
+                      result.status === 'success' ? 'bg-green-100' : 'bg-red-100'
+                    }`}>
+                      {result.status === 'success' ? (
+                        <svg className="w-4 h-4 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                      ) : (
+                        <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                      )}
+                    </div>
+                    <div>
+                      <div className={`font-medium text-sm ${
+                        result.status === 'success' ? 'text-green-900' : 'text-red-900'
+                      }`}>
+                        {email}
+                      </div>
+                      <div className={`text-xs ${
+                        result.status === 'success' ? 'text-green-700' : 'text-red-700'
+                      }`}>
+                        {result.message}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 text-xs text-blue-700">
+              <p>✅ Group created successfully! Invitations have been sent to all members.</p>
+              <p>📧 Members will receive email invitations to join the group.</p>
+            </div>
+          </div>
+        )}
       </div>
-  );
-};
+    );
+  };
 
 export default CreateGroupView;
