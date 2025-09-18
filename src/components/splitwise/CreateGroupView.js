@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ProfilePicture from '../common/ProfilePicture';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
+import TestInviteAPI from './TestInviteAPI';
 
 const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
   const [groupName, setGroupName] = useState('');
@@ -222,6 +223,10 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
 
   return (
     <div className="max-w-2xl">
+      {/* Temporary Debug Component */}
+      <div className="mb-6">
+        <TestInviteAPI />
+      </div>
         {/* Back Button */}
         <div className="mb-6">
           <button

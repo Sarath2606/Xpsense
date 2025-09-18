@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ProfilePicture from '../common/ProfilePicture';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 
 const GroupSettingsModal = ({ isOpen, onClose, group, currentUser, onGroupUpdated }) => {
@@ -416,15 +417,12 @@ const GroupSettingsModal = ({ isOpen, onClose, group, currentUser, onGroupUpdate
                     return (
                     <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          member.role === 'admin' ? 'bg-purple-100' : 'bg-gray-100'
-                        }`}>
-                          <span className={`font-medium text-sm ${
-                            member.role === 'admin' ? 'text-purple-600' : 'text-gray-600'
-                          }`}>
-                            {displayName.charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        <ProfilePicture
+                          email={userEmail}
+                          name={displayName}
+                          size="sm"
+                          isAdmin={member.role === 'admin'}
+                        />
                         <div>
                           <div className="flex items-center space-x-2">
                             <span className="font-medium text-sm">{displayName}</span>

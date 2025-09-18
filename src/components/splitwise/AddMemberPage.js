@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ProfilePicture from '../common/ProfilePicture';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 
 const AddMemberPage = ({ group, onBack, onMemberAdded }) => {
@@ -209,11 +210,13 @@ const AddMemberPage = ({ group, onBack, onMemberAdded }) => {
                       return (
                         <div key={member.id} className={`flex items-center justify-between p-3 bg-white border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors ${index === 0 ? 'border-t-0' : ''}`}>
                           <div className="flex items-center flex-1 min-w-0">
-                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-teal-400 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                              <span className="text-white font-semibold text-sm">
-                                {initial}
-                              </span>
-                            </div>
+                            <ProfilePicture
+                              email={displayEmail}
+                              name={displayName}
+                              size="md"
+                              isAdmin={member.role === 'admin'}
+                              className="mr-3 flex-shrink-0"
+                            />
                             <div className="min-w-0 flex-1">
                               <div className="font-semibold text-gray-900 text-sm truncate">
                                 {displayName}

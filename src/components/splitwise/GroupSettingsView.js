@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ProfilePicture from '../common/ProfilePicture';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
 
 const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated, onShowAddMember }) => {
@@ -488,11 +489,13 @@ const GroupSettingsView = ({ group, currentUser, onBack, onGroupUpdated, onShowA
               return (
                 <div key={member.id} className="flex items-center justify-between p-4 bg-gray-800 rounded-xl border border-gray-700">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-medium text-lg">
-                        {displayName.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <ProfilePicture
+                      email={userEmail}
+                      name={displayName}
+                      size="lg"
+                      isAdmin={isAdmin}
+                      showBorder={true}
+                    />
                     <div>
                       <div className="flex items-center space-x-2">
                         <span className="text-white font-medium">{displayName}</span>

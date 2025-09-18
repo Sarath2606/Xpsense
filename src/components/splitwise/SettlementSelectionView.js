@@ -1,4 +1,5 @@
 import React from 'react';
+import ProfilePicture from '../common/ProfilePicture';
 
 const SettlementSelectionView = ({ 
   group, 
@@ -96,11 +97,12 @@ const SettlementSelectionView = ({
                     >
                       <div className="flex items-center">
                         {/* Avatar */}
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-teal-400 rounded-full flex items-center justify-center mr-4">
-                          <span className="text-white font-medium text-lg">
-                            {(member?.name || member?.email || 'Unknown').charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        <ProfilePicture
+                          email={member?.email || member?.user?.email}
+                          name={member?.name || member?.user?.name}
+                          size="lg"
+                          className="mr-4"
+                        />
                         
                         {/* User Info */}
                         <div className="text-left">
@@ -146,11 +148,12 @@ const SettlementSelectionView = ({
                     >
                       <div className="flex items-center">
                         {/* Avatar */}
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-teal-400 rounded-full flex items-center justify-center mr-4">
-                          <span className="text-white font-medium text-lg">
-                            {(member?.name || member?.email || 'Unknown').charAt(0).toUpperCase()}
-                          </span>
-                        </div>
+                        <ProfilePicture
+                          email={member?.email || member?.user?.email}
+                          name={member?.name || member?.user?.name}
+                          size="lg"
+                          className="mr-4"
+                        />
                         
                         {/* User Info */}
                         <div className="text-left">
