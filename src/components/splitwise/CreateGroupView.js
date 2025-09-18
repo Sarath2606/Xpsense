@@ -137,23 +137,28 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
       const membersToInvite = members.filter(member => member.id !== 'current_user');
       const invitationResults = {};
       
+      console.log('📧 Members to invite:', membersToInvite);
+      console.log('📧 Total members array:', members);
+      
       if (membersToInvite.length > 0) {
         setShowInvitationResults(true);
         
         // Send invitations in parallel
         const invitationPromises = membersToInvite.map(async (member) => {
           try {
+            console.log(`📤 Sending invitation to ${member.email} for group ${createdGroup.id}`);
             const inviteResponse = await invitesApi.sendInvite(createdGroup.id, {
               email: member.email,
               message: `You've been invited to join "${groupName.trim()}" group!`
             });
+            console.log(`✅ Invitation sent successfully to ${member.email}:`, inviteResponse);
             invitationResults[member.email] = { 
               status: 'success', 
               message: 'Invitation sent successfully',
               invitation: inviteResponse.invitation
             };
           } catch (error) {
-            console.error(`Failed to send invitation to ${member.email}:`, error);
+            console.error(`❌ Failed to send invitation to ${member.email}:`, error);
             invitationResults[member.email] = { 
               status: 'error', 
               message: error.message || 'Failed to send invitation'
@@ -163,7 +168,10 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
         
         // Wait for all invitations to complete
         await Promise.all(invitationPromises);
+        console.log('📊 Final invitation results:', invitationResults);
         setInvitationStatus(invitationResults);
+      } else {
+        console.log('⚠️ No members to invite - only current user in group');
       }
       
       // Step 3: Call the original onCreateGroup callback with the created group

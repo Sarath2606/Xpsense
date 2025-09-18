@@ -146,6 +146,7 @@ export class SplitwiseInvitesController {
       const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
 
       // Fire-and-forget email sending so the API responds immediately
+      console.log('📧 Attempting to send invitation email to:', email.trim());
       EmailService.sendInvitationEmail({
         to: email.trim(),
         groupName: group.name,
@@ -153,8 +154,10 @@ export class SplitwiseInvitesController {
         token,
         message: message?.trim(),
         groupId: id
+      }).then(() => {
+        console.log('✅ Email sent successfully to:', email.trim());
       }).catch((err) => {
-        console.error('Background email send failed:', err);
+        console.error('❌ Background email send failed for:', email.trim(), err);
       });
 
       return res.status(201).json({
