@@ -185,15 +185,13 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     loadGroups();
   }, [loadGroups]);
 
-  const handleCreateGroup = async (newGroup) => {
+  const handleCreateGroup = async (createdGroup) => {
     try {
-      const response = await groupsApi.create(newGroup);
-      const createdGroup = response.group;
+      // The group is already created, just add it to the UI
       setGroups([...groups, createdGroup]);
       setShowCreateGroup(false);
     } catch (err) {
-      console.error('Failed to create group:', err);
-      // Error will be handled by the API hook
+      console.error('Failed to update groups list:', err);
     }
   };
 

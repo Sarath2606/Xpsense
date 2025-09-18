@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import ProfilePicture from '../common/ProfilePicture';
 import { useSplitwiseApi } from '../../hooks/use_splitwise_api';
-import TestInviteAPI from './TestInviteAPI';
 
 const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
   const [groupName, setGroupName] = useState('');
@@ -119,23 +118,24 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
 
     try {
       // Step 1: Create the group (only with the creator, not other members)
+      const currentUserMember = members.find(member => member.id === 'current_user');
+      if (!currentUserMember) {
+        throw new Error('Current user not found in members list');
+      }
+      
       const groupData = {
         name: groupName.trim(),
         type: groupType,
         currencyCode: currency,
-        members: [members.find(member => member.id === 'current_user')] // Only include the current user
+        members: [currentUserMember] // Only include the current user
       };
       
-      console.log('🚀 Creating group with data:', groupData);
       const response = await groupsApi.create(groupData);
       const createdGroup = response.group;
-      console.log('✅ Group created successfully:', createdGroup);
       
       // Step 2: Send invitations to all non-current-user members
       const membersToInvite = members.filter(member => member.id !== 'current_user');
       const invitationResults = {};
-      
-      console.log('📧 Members to invite:', membersToInvite);
       
       if (membersToInvite.length > 0) {
         setShowInvitationResults(true);
@@ -143,19 +143,17 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
         // Send invitations in parallel
         const invitationPromises = membersToInvite.map(async (member) => {
           try {
-            console.log(`📤 Sending invitation to ${member.email} for group ${createdGroup.id}`);
             const inviteResponse = await invitesApi.sendInvite(createdGroup.id, {
               email: member.email,
               message: `You've been invited to join "${groupName.trim()}" group!`
             });
-            console.log(`✅ Invitation sent successfully to ${member.email}:`, inviteResponse);
             invitationResults[member.email] = { 
               status: 'success', 
               message: 'Invitation sent successfully',
               invitation: inviteResponse.invitation
             };
           } catch (error) {
-            console.error(`❌ Failed to send invitation to ${member.email}:`, error);
+            console.error(`Failed to send invitation to ${member.email}:`, error);
             invitationResults[member.email] = { 
               status: 'error', 
               message: error.message || 'Failed to send invitation'
@@ -165,7 +163,6 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
         
         // Wait for all invitations to complete
         await Promise.all(invitationPromises);
-        console.log('📊 Final invitation results:', invitationResults);
         setInvitationStatus(invitationResults);
       }
       
@@ -191,13 +188,7 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
       }, 3000);
       
     } catch (error) {
-      console.error('❌ Failed to create group:', error);
-      console.error('❌ Error details:', {
-        message: error.message,
-        status: error.status,
-        response: error.response,
-        stack: error.stack
-      });
+      console.error('Failed to create group:', error);
       setMemberError(error.message || 'Failed to create group. Please try again.');
     } finally {
       setIsCreating(false);
@@ -223,10 +214,6 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
 
   return (
     <div className="max-w-2xl">
-      {/* Temporary Debug Component */}
-      <div className="mb-6">
-        <TestInviteAPI />
-      </div>
         {/* Back Button */}
         <div className="mb-6">
           <button
