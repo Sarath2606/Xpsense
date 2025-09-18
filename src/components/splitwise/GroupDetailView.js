@@ -487,45 +487,6 @@ const GroupDetailView = ({ group, onUpdateGroup, onBack, onAddExpenseClick, onSe
         </div>
       )}
 
-      {/* Empty Group State - Show when group has only the creator or no members */}
-      {!loading && group.members && group.members.length <= 1 && (
-        <div className="mb-6">
-          <div className="bg-gray-800 rounded-xl p-4 text-center">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-3">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-1">You're the only one here!</h3>
-            <p className="text-gray-300 mb-4">Add members to start splitting expenses together</p>
-            
-            <div className="space-y-3">
-              <button
-                onClick={() => setShowAddMemberPage(true)}
-                className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
-                </svg>
-                <span>Add group members</span>
-              </button>
-              
-              <button
-                onClick={() => {
-                  // TODO: Implement share group link functionality
-                  alert('Share group link functionality will be implemented soon!');
-                }}
-                className="w-full bg-gray-700 hover:bg-gray-600 text-white px-4 py-2.5 rounded-lg font-medium transition-colors flex items-center justify-center space-x-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z" />
-                </svg>
-                <span>Share group link</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
                            {/* Stats Cards - Financial Overview */}
         <div className="grid grid-cols-3 gap-2 mb-4">
