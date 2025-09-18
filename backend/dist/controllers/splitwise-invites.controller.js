@@ -11,20 +11,29 @@ const prisma = new client_1.PrismaClient();
 class SplitwiseInvitesController {
     static async checkSmtpHealth(req, res) {
         try {
+            const secure = (process.env.SMTP_SECURE || '').toLowerCase() === 'true';
             const smtpConfig = {
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: parseInt(process.env.SMTP_PORT || '587'),
+                port: parseInt(process.env.SMTP_PORT || (secure ? '465' : '587')),
                 user: process.env.SMTP_USER ? 'configured' : 'missing',
                 from: process.env.SMTP_FROM ? 'configured' : 'missing',
-                pass: process.env.SMTP_PASS ? 'configured' : 'missing'
+                pass: process.env.SMTP_PASS ? 'configured' : 'missing',
+                secure
             };
             const transporter = nodemailer_1.default.createTransport({
                 host: smtpConfig.host,
                 port: smtpConfig.port,
-                secure: false,
+                secure: smtpConfig.secure,
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
+                },
+                connectionTimeout: parseInt(process.env.SMTP_CONNECTION_TIMEOUT || '30000'),
+                greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT || '30000'),
+                socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT || '60000'),
+                tls: smtpConfig.secure ? undefined : {
+                    rejectUnauthorized: false,
+                    ciphers: 'SSLv3'
                 }
             });
             try {
@@ -111,26 +120,31 @@ class SplitwiseInvitesController {
                     message: message?.trim() || null
                 }
             });
-            await SplitwiseInvitesController.sendInvitationEmail({
+            const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+            const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
+            SplitwiseInvitesController.sendInvitationEmail({
                 to: email.trim(),
                 groupName: group.name,
                 inviterName: group.creator.name || 'Group Admin',
                 token,
                 message: message?.trim(),
                 groupId: id
+            }).catch((err) => {
+                console.error('Background email send failed:', err);
             });
-            res.status(201).json({
-                message: "Invitation sent successfully",
+            return res.status(201).json({
+                message: "Invitation created; email delivery processing in background",
                 invitation: {
                     id: invitation.id,
                     email: invitation.email,
                     expiresAt: invitation.expiresAt
-                }
+                },
+                acceptUrl
             });
         }
         catch (error) {
-            console.error("Send invite error:", error);
-            res.status(500).json({ error: "Failed to send invitation" });
+            console.error("Send invite error", error);
+            return res.status(500).json({ error: "Failed to send invitation" });
         }
     }
     static async acceptInvite(req, res) {
@@ -287,13 +301,21 @@ class SplitwiseInvitesController {
     }
     static async sendInvitationEmail({ to, groupName, inviterName, token, message, groupId }) {
         try {
+            const secure = (process.env.SMTP_SECURE || '').toLowerCase() === 'true';
             const transporter = nodemailer_1.default.createTransport({
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: parseInt(process.env.SMTP_PORT || '587'),
-                secure: false,
+                port: parseInt(process.env.SMTP_PORT || (secure ? '465' : '587')),
+                secure: secure,
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
+                },
+                connectionTimeout: parseInt(process.env.SMTP_CONNECTION_TIMEOUT || '30000'),
+                greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT || '30000'),
+                socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT || '60000'),
+                tls: secure ? undefined : {
+                    rejectUnauthorized: false,
+                    ciphers: 'SSLv3'
                 }
             });
             try {
@@ -307,7 +329,6 @@ class SplitwiseInvitesController {
                     response: verifyError?.response,
                     message: verifyError?.message,
                 });
-                throw verifyError;
             }
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
             const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
@@ -317,20 +338,16 @@ class SplitwiseInvitesController {
             <h1 style="margin: 0; font-size: 28px;">You're Invited!</h1>
             <p style="margin: 10px 0 0 0; font-size: 16px;">Join the expense sharing group</p>
           </div>
-          
           <div style="padding: 30px; background: white;">
             <h2 style="color: #333; margin-bottom: 20px;">${groupName}</h2>
-            
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
               <strong>${inviterName}</strong> has invited you to join their expense sharing group on Xpenses.
             </p>
-            
             ${message ? `
               <div style="background: #f8f9fa; padding: 15px; border-left: 4px solid #667eea; margin-bottom: 20px;">
                 <p style="margin: 0; color: #555; font-style: italic;">"${message}"</p>
               </div>
             ` : ''}
-            
             <div style="text-align: center; margin: 30px 0;">
               <a href="${acceptUrl}" 
                  style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
@@ -343,13 +360,11 @@ class SplitwiseInvitesController {
                 Accept Invitation
               </a>
             </div>
-            
             <p style="color: #999; font-size: 14px; text-align: center;">
               This invitation will expire in 7 days.<br>
               If you don't have an account, you'll be prompted to create one when you accept.
             </p>
           </div>
-          
           <div style="background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 12px;">
             <p style="margin: 0;">
               This invitation was sent from Xpenses - Your Personal Finance Manager<br>
@@ -358,13 +373,30 @@ class SplitwiseInvitesController {
           </div>
         </div>
       `;
-            await transporter.sendMail({
-                from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@xpenses.com',
-                to,
-                subject: `You're invited to join "${groupName}" on Xpenses`,
-                html: emailContent
-            });
-            console.log(`Invitation email sent to ${to} for group ${groupName}`);
+            let retryCount = 0;
+            const maxRetries = 3;
+            let lastError;
+            while (retryCount < maxRetries) {
+                try {
+                    await transporter.sendMail({
+                        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@xpenses.com',
+                        to,
+                        subject: `You're invited to join "${groupName}" on Xpenses`,
+                        html: emailContent
+                    });
+                    console.log(`Invitation email sent to ${to} for group ${groupName} (attempt ${retryCount + 1})`);
+                    return;
+                }
+                catch (sendError) {
+                    lastError = sendError;
+                    retryCount++;
+                    if (retryCount < maxRetries) {
+                        console.log(`Email send attempt ${retryCount} failed, retrying in ${retryCount * 2} seconds...`);
+                        await new Promise(resolve => setTimeout(resolve, retryCount * 2000));
+                    }
+                }
+            }
+            throw lastError;
         }
         catch (error) {
             const errAny = error;

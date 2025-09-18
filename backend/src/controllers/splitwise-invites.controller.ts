@@ -31,10 +31,13 @@ export class SplitwiseInvitesController {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 10000,
-        tls: smtpConfig.secure ? undefined : { rejectUnauthorized: false }
+        connectionTimeout: parseInt(process.env.SMTP_CONNECTION_TIMEOUT || '30000'),
+        greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT || '30000'),
+        socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT || '60000'),
+        tls: smtpConfig.secure ? undefined : { 
+          rejectUnauthorized: false,
+          ciphers: 'SSLv3'
+        }
       });
 
       try {
@@ -388,11 +391,14 @@ export class SplitwiseInvitesController {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 10000,
+        connectionTimeout: parseInt(process.env.SMTP_CONNECTION_TIMEOUT || '30000'),
+        greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT || '30000'),
+        socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT || '60000'),
         // For many PaaS providers, STARTTLS with relaxed certs can help
-        tls: secure ? undefined : { rejectUnauthorized: false }
+        tls: secure ? undefined : { 
+          rejectUnauthorized: false,
+          ciphers: 'SSLv3'
+        }
       });
 
       // Best-effort verify with a short timeout; do not block excessively
@@ -454,14 +460,35 @@ export class SplitwiseInvitesController {
         </div>
       `;
 
-      await transporter.sendMail({
-        from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@xpenses.com',
-        to,
-        subject: `You're invited to join "${groupName}" on Xpenses`,
-        html: emailContent
-      });
+      // Retry logic for email sending
+      let retryCount = 0;
+      const maxRetries = 3;
+      let lastError: any;
 
-      console.log(`Invitation email sent to ${to} for group ${groupName}`);
+      while (retryCount < maxRetries) {
+        try {
+          await transporter.sendMail({
+            from: process.env.SMTP_FROM || process.env.SMTP_USER || 'noreply@xpenses.com',
+            to,
+            subject: `You're invited to join "${groupName}" on Xpenses`,
+            html: emailContent
+          });
+
+          console.log(`Invitation email sent to ${to} for group ${groupName} (attempt ${retryCount + 1})`);
+          return; // Success, exit the function
+        } catch (sendError) {
+          lastError = sendError;
+          retryCount++;
+          
+          if (retryCount < maxRetries) {
+            console.log(`Email send attempt ${retryCount} failed, retrying in ${retryCount * 2} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, retryCount * 2000)); // Exponential backoff
+          }
+        }
+      }
+
+      // If we get here, all retries failed
+      throw lastError;
     } catch (error) {
       const errAny = error as any;
       console.error('Failed to send invitation email:', {
