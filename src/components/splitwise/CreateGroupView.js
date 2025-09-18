@@ -345,6 +345,7 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                   const displayName = userName === 'Unknown' && userEmail !== 'No email' 
                     ? userEmail.split('@')[0] 
                     : userName;
+                  const isCurrentUser = member.id === 'current_user';
                   
                   return (
                   <div key={member.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -363,6 +364,11 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                               Admin
                             </span>
                           )}
+                          {!isCurrentUser && (
+                            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                              Will be invited
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500">{userEmail}</div>
                       </div>
@@ -372,7 +378,7 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                         type="button"
                         onClick={() => handleRemoveMember(member.id)}
                         className="text-red-500 hover:text-red-700 p-1 rounded hover:bg-red-50 transition-colors"
-                        title="Remove member"
+                        title="Remove from invitation list"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
@@ -388,7 +394,7 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
             {/* Add New Member */}
             <div className="space-y-3">
               <div className="text-sm text-gray-600 mb-2">
-                Add members to your group. Email invitations will be sent automatically when you create the group.
+                Add members to invite to your group. They'll receive email invitations and need to accept them to join.
               </div>
               <div className="space-y-2">
                 <input
@@ -482,7 +488,7 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
                   Creating Group & Sending Invitations...
                 </>
               ) : (
-                `Create Group & Send Invitations (${members.length} member${members.length !== 1 ? 's' : ''})`
+                `Create Group & Send Invitations (${members.length - 1} invite${members.length - 1 !== 1 ? 's' : ''})`
               )}
             </button>
           </div>
@@ -495,8 +501,11 @@ const CreateGroupView = ({ onBack, onCreateGroup, currentUser }) => {
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
-              Invitation Results
+              Email Invitations Sent
             </h3>
+            <p className="text-sm text-blue-700 mb-3">
+              Invitations have been sent to the following people. They'll need to accept the invitation to join your group.
+            </p>
             <div className="space-y-2">
               {Object.entries(invitationStatus).map(([email, result]) => (
                 <div key={email} className={`flex items-center justify-between p-3 rounded-lg ${
