@@ -123,6 +123,7 @@ class SplitwiseInvitesController {
             });
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
             const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
+            console.log('📧 Attempting to send invitation email to:', email.trim());
             email_service_1.EmailService.sendInvitationEmail({
                 to: email.trim(),
                 groupName: group.name,
@@ -130,8 +131,10 @@ class SplitwiseInvitesController {
                 token,
                 message: message?.trim(),
                 groupId: id
+            }).then(() => {
+                console.log('✅ Email sent successfully to:', email.trim());
             }).catch((err) => {
-                console.error('Background email send failed:', err);
+                console.error('❌ Background email send failed for:', email.trim(), err);
             });
             return res.status(201).json({
                 message: "Invitation created; email delivery processing in background",

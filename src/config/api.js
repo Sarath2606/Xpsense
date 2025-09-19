@@ -17,8 +17,8 @@ class ApiService {
       console.log('API: Checking auth state - currentUser:', currentUser ? 'exists' : 'null');
       
       if (!currentUser) {
-        // Wait a bit for auth state to be available
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Wait longer for auth state to be available
+        await new Promise(resolve => setTimeout(resolve, 300));
         const retryUser = auth.currentUser;
         console.log('API: Retry auth check - currentUser:', retryUser ? 'exists' : 'null');
         
@@ -64,7 +64,7 @@ class ApiService {
     const isSilent = options.silent === true;
     const maxRetries = options.maxRetries !== undefined ? options.maxRetries : (isSilent ? 0 : 2); // No retries for silent checks
     const baseDelay = options.baseDelay || 2000; // Increased from 1000 to 2000ms
-    const timeoutMs = options.timeoutMs || 15000; // default 15s timeout
+    const timeoutMs = options.timeoutMs || 25000; // default 25s timeout
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       // Setup timeout controller per attempt

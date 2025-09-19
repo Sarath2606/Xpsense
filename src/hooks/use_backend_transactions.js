@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import apiService from '../config/api';
+import { useAuth } from './use_auth_hook';
 
 export const useBackendTransactions = () => {
   const [transactions, setTransactions] = useState([]);
@@ -12,6 +13,8 @@ export const useBackendTransactions = () => {
     total: 0,
     pages: 0
   });
+  
+  const { isAuthenticated } = useAuth();
 
   // Fetch transactions with filters
   const fetchTransactions = useCallback(async (params = {}) => {
@@ -201,10 +204,16 @@ export const useBackendTransactions = () => {
     return transactions.slice(0, limit);
   }, [transactions]);
 
-  // Load initial data
+  // Load initial data only when authenticated
   useEffect(() => {
+    if (!isAuthenticated) {
+      console.log('useBackendTransactions: User not authenticated, skipping initial data load');
+      return;
+    }
+
     const loadInitialData = async () => {
       try {
+        console.log('useBackendTransactions: Loading initial data...');
         await Promise.all([
           fetchTransactions(),
           fetchStats()
@@ -214,8 +223,15 @@ export const useBackendTransactions = () => {
       }
     };
 
-    loadInitialData();
-  }, [fetchTransactions, fetchStats]);
+    // Add a small delay to ensure auth is fully established
+    const timer = setTimeout(() => {
+      if (isAuthenticated) {
+        loadInitialData();
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, fetchTransactions, fetchStats]);
 
   return {
     // State

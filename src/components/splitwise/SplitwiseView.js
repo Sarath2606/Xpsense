@@ -45,29 +45,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     return loading || isInitialLoad;
   }, [loading, isInitialLoad]);
 
-  // Add a timeout to prevent infinite loading states
-  useEffect(() => {
-    if (isInitialLoad && authHookAuthenticated) {
-      const timeout = setTimeout(() => {
-        if (isInitialLoad) {
-          console.log('SplitwiseView: Loading timeout, setting initial load to false');
-          setIsInitialLoad(false);
-        }
-      }, 5000); // 5 second timeout
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [isInitialLoad, authHookAuthenticated]);
-
-  // Debug authentication state
-  useEffect(() => {
-    console.log('SplitwiseView: Auth state debug:', {
-      user: user ? 'exists' : 'null',
-      authHookAuthenticated,
-      firebaseCurrentUser: auth.currentUser ? 'exists' : 'null'
-    });
-  }, [user, authHookAuthenticated]);
-
+  // Define loadGroups function first
   const loadGroups = useCallback(async (forceRefresh = false) => {
     // Prevent multiple simultaneous calls unless forced
     if (loadingRef.current && !forceRefresh) {
@@ -87,7 +65,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       
       // Add a timeout to prevent hanging requests
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
+        setTimeout(() => reject(new Error('Request timeout')), 20000); // 20 second timeout
       });
       
       const response = await Promise.race([
@@ -140,6 +118,41 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     }
   }, [groupsApi]);
 
+  // Add a timeout to prevent infinite loading states
+  useEffect(() => {
+    if (isInitialLoad && authHookAuthenticated) {
+      const timeout = setTimeout(() => {
+        if (isInitialLoad) {
+          console.log('SplitwiseView: Loading timeout, setting initial load to false');
+          setIsInitialLoad(false);
+        }
+      }, 10000); // 10 second timeout
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [isInitialLoad, authHookAuthenticated]);
+
+  // Debug authentication state and handle auth state changes
+  useEffect(() => {
+    console.log('SplitwiseView: Auth state debug:', {
+      user: user ? 'exists' : 'null',
+      authHookAuthenticated,
+      firebaseCurrentUser: auth.currentUser ? 'exists' : 'null'
+    });
+    
+    // If user becomes authenticated and groups haven't been loaded, load them
+    if (authHookAuthenticated && user && !groupsLoadedRef.current && !loadingRef.current) {
+      console.log('SplitwiseView: User authenticated, scheduling group load...');
+      const timer = setTimeout(() => {
+        if (auth.currentUser && authHookAuthenticated && !groupsLoadedRef.current) {
+          loadGroups();
+        }
+      }, 200);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [user, authHookAuthenticated, loadGroups]);
+
   // Load groups from API on component mount - only once when authenticated
   useEffect(() => {
     // Only load groups if user is authenticated and groups haven't been loaded
@@ -153,10 +166,15 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       return;
     }
     
-    // Add a small delay to ensure smooth loading and prevent stuck states
+    // Add a longer delay to ensure Firebase auth is fully established
     const timer = setTimeout(() => {
-      loadGroups();
-    }, 100);
+      // Double-check auth state before making API call
+      if (auth.currentUser && authHookAuthenticated) {
+        loadGroups();
+      } else {
+        console.log('SplitwiseView: Auth not ready after delay, skipping group load');
+      }
+    }, 500); // Increased from 100ms to 500ms
     
     return () => clearTimeout(timer);
   }, [authHookAuthenticated]);
