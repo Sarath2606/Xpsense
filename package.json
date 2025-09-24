@@ -23,8 +23,7 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "deploy:pages": "wrangler pages deploy build",
-    "deploy:worker": "cd backend && wrangler deploy",
-    "vercel-build": "npm run build"
+    "deploy:worker": "cd backend && wrangler deploy"
   },
   "eslintConfig": {
     "extends": [
