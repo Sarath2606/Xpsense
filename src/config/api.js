@@ -5,6 +5,9 @@ export const API_BASE_URL = process.env.REACT_APP_API_URL ||
     ? 'https://xpsense-production.up.railway.app/api'
     : 'http://localhost:3001/api');
 
+// Add connection timeout configuration for production
+export const CONNECTION_TIMEOUT = process.env.NODE_ENV === 'production' ? 10000 : 15000;
+
 class ApiService {
   constructor() {
     this.baseURL = API_BASE_URL;
@@ -62,9 +65,9 @@ class ApiService {
   // Generic API request method with retry logic and timeout
   async request(endpoint, options = {}) {
     const isSilent = options.silent === true;
-    const maxRetries = options.maxRetries !== undefined ? options.maxRetries : (isSilent ? 0 : 2); // No retries for silent checks
-    const baseDelay = options.baseDelay || 2000; // Increased from 1000 to 2000ms
-    const timeoutMs = options.timeoutMs || 25000; // default 25s timeout
+    const maxRetries = options.maxRetries !== undefined ? options.maxRetries : (isSilent ? 0 : 1); // Reduced retries for faster failure
+    const baseDelay = options.baseDelay || 1000; // Reduced delay for faster retries
+    const timeoutMs = options.timeoutMs || CONNECTION_TIMEOUT; // Use environment-specific timeout
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       // Setup timeout controller per attempt

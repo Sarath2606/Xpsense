@@ -65,7 +65,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       
       // Add a timeout to prevent hanging requests
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 20000); // 20 second timeout
+        setTimeout(() => reject(new Error('Request timeout')), 12000); // 12 second timeout for better UX
       });
       
       const response = await Promise.race([
@@ -93,7 +93,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       
       // Handle timeout errors
       if (err.message === 'Request timeout') {
-        setAuthError('Request timed out. Please try again.');
+        setAuthError('Connection timed out. Please check your internet connection and try again.');
         setGroups([]);
       }
       // Check if it's an authentication error
@@ -105,10 +105,14 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
         // Handle rate limiting
         setAuthError('Too many requests. Please wait a moment and try again.');
         setGroups([]);
+      } else if (err.message.includes('Network') || err.message.includes('fetch')) {
+        // Handle network errors
+        setAuthError('Network error. Please check your connection and try again.');
+        setGroups([]);
       } else {
         // Set empty array if API fails for other reasons
         setGroups([]);
-        setAuthError(null);
+        setAuthError(`Unable to load groups: ${err.message}`);
       }
       
       // Always set initial load to false on error to prevent stuck states
@@ -126,7 +130,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
           console.log('SplitwiseView: Loading timeout, setting initial load to false');
           setIsInitialLoad(false);
         }
-      }, 10000); // 10 second timeout
+      }, 8000); // 8 second timeout for faster feedback
       
       return () => clearTimeout(timeout);
     }
@@ -147,7 +151,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
         if (auth.currentUser && authHookAuthenticated && !groupsLoadedRef.current) {
           loadGroups();
         }
-      }, 200);
+      }, 100); // Reduced delay for faster response
       
       return () => clearTimeout(timer);
     }
@@ -166,7 +170,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       return;
     }
     
-    // Add a longer delay to ensure Firebase auth is fully established
+    // Add a delay to ensure Firebase auth is fully established
     const timer = setTimeout(() => {
       // Double-check auth state before making API call
       if (auth.currentUser && authHookAuthenticated) {
@@ -174,7 +178,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       } else {
         console.log('SplitwiseView: Auth not ready after delay, skipping group load');
       }
-    }, 500); // Increased from 100ms to 500ms
+    }, 300); // Reduced delay for faster response
     
     return () => clearTimeout(timer);
   }, [authHookAuthenticated]);
@@ -590,7 +594,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
               {authError.includes('Rate limit') ? 'Too Many Requests' : 'Authentication Required'}
             </h3>
             <p className="text-gray-600 mb-4">{authError}</p>
-            {authError.includes('Rate limit') ? (
+            {authError.includes('Rate limit') || authError.includes('timed out') || authError.includes('Network error') ? (
               <button
                 onClick={handleRetry}
                 className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-medium transition-colors"
@@ -598,12 +602,12 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
                 Try Again
               </button>
             ) : (
-                             <button
-                 onClick={handleGoToLogin}
-                 className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-medium transition-colors"
-               >
-                 Go to Login
-               </button>
+              <button
+                onClick={handleGoToLogin}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-2 rounded-xl font-medium transition-colors"
+              >
+                Go to Login
+              </button>
             )}
           </div>
                  ) : showCreateGroup ? (

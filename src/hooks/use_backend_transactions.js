@@ -228,7 +228,7 @@ export const useBackendTransactions = () => {
       if (isAuthenticated) {
         loadInitialData();
       }
-    }, 300);
+    }, 200); // Reduced delay for faster response
 
     return () => clearTimeout(timer);
   }, [isAuthenticated, fetchTransactions, fetchStats]);
