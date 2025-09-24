@@ -1,16 +1,8 @@
-# Cloudflare Workers configuration for Xpenses backend
-name = "xpenses-backend"
-main = "backend/dist/app.js"
+# Cloudflare Pages configuration for Xpenses frontend
+name = "xpenses-app"
+pages_build_output_dir = "build"
 compatibility_date = "2024-01-01"
-compatibility_flags = ["nodejs_compat"]
-
-[env.production]
-name = "xpenses-backend-prod"
-
-[env.staging]
-name = "xpenses-backend-staging"
 
 # Environment variables (secrets should be set via Cloudflare dashboard)
 [vars]
 NODE_ENV = "production"
-LOG_LEVEL = "info"
