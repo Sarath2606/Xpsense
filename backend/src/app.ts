@@ -39,10 +39,32 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,ht
   .map(o => o.trim())
   .filter(Boolean);
 
+// Helper to check if an origin is allowed, supporting Pages/Vercel preview subdomains
+function isOriginAllowed(origin?: string): boolean {
+  if (!origin) return true; // allow non-browser clients
+  try {
+    const url = new URL(origin);
+    const host = url.hostname.toLowerCase();
+    // Exact matches from env
+    if (allowedOrigins.includes(origin)) return true;
+    // Allow Cloudflare Pages preview domains for this project
+    if (host.endsWith('.xpenses-app.pages.dev')) return true;
+    // Optional: allow Vercel preview domains
+    if (host.endsWith('.vercel.app')) return true;
+    return false;
+  } catch {
+    // Fallback to strict list if origin is not a valid URL
+    return allowedOrigins.includes(origin);
+  }
+}
+
 // Socket.IO setup
 export const io = new SocketIOServer(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) return callback(null, true);
+      callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -102,7 +124,10 @@ app.use(helmet());
 
 // CORS configuration
 app.use(cors({
-  origin: allowedOrigins,
+  origin: (origin, callback) => {
+    if (isOriginAllowed(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
