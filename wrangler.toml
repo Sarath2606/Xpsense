@@ -4,3 +4,8 @@ compatibility_date = "2024-01-01"
 
 # This is a Pages project, not a Workers project
 pages_build_output_dir = "build"
+
+# Environment variables for build
+[vars]
+CI = "false"
+GENERATE_SOURCEMAP = "false"
