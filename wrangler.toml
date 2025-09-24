@@ -1,8 +1,6 @@
-# Cloudflare Pages configuration for Xpenses frontend
+# Cloudflare Pages configuration
 name = "xpenses-app"
-pages_build_output_dir = "build"
 compatibility_date = "2024-01-01"
 
-# Environment variables (secrets should be set via Cloudflare dashboard)
-[vars]
-NODE_ENV = "production"
+# This is a Pages project, not a Workers project
+pages_build_output_dir = "build"

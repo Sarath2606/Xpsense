@@ -1,4 +1,4 @@
-# Cloudflare Pages configuration
+# Cloudflare Pages configuration for Xpenses frontend
 [build]
   command = "npm run build"
   destination = "build"
@@ -6,11 +6,13 @@
 [build.environment]
   NODE_VERSION = "18"
 
+# API redirects to Railway backend
 [[redirects]]
   from = "/api/*"
-  to = "https://xpenses-backend.workers.dev/:splat"
+  to = "https://xpsense-production.up.railway.app/api/:splat"
   status = 200
 
+# Security headers
 [[headers]]
   for = "/*"
   [headers.values]
