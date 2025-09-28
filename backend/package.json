@@ -21,6 +21,7 @@
     "db:cleanup": "node cleanup-test-data.js",
     "db:reset-all": "node reset-database.js",
     "db:check": "node check-accounts.js",
+    "db:health": "node check-database-health.js",
     "test:mastercard": "jest --testPathPattern=mastercard",
     "test:consent": "jest --testPathPattern=consent",
     "lint": "eslint src/**/*.ts",

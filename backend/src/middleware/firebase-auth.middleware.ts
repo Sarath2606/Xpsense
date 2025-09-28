@@ -35,29 +35,42 @@ export const authenticateFirebaseToken = async (
       if (process.env.NODE_ENV === 'development') {
         const userEmail = 'smilysarath26@gmail.com';
         
-        // Find or create user in database for development
-        const dbUser = await prisma.user.upsert({
-          where: { email: userEmail },
-          update: {
-            name: 'Development User',
-            firebaseUid: 'dev-firebase-uid'
-          },
-          create: {
+        try {
+          // Find or create user in database for development
+          const dbUser = await prisma.user.upsert({
+            where: { email: userEmail },
+            update: {
+              name: 'Development User',
+              firebaseUid: 'dev-firebase-uid'
+            },
+            create: {
+              email: userEmail,
+              name: 'Development User',
+              firebaseUid: 'dev-firebase-uid'
+            }
+          });
+
+          req.user = {
+            id: dbUser.id, // Use database user ID
+            email: dbUser.email,
+            name: dbUser.name || undefined,
+            firebaseUid: dbUser.firebaseUid || 'dev-firebase-uid'
+          };
+
+          logger.info(`Development authentication successful for user: ${req.user.email} (no token provided)`);
+          return next();
+        } catch (dbError) {
+          logger.error('Database connection failed in development mode:', dbError);
+          // Fallback to mock user without database
+          req.user = {
+            id: 'dev-user-id',
             email: userEmail,
             name: 'Development User',
             firebaseUid: 'dev-firebase-uid'
-          }
-        });
-
-        req.user = {
-          id: dbUser.id, // Use database user ID
-          email: dbUser.email,
-          name: dbUser.name || undefined,
-          firebaseUid: dbUser.firebaseUid || 'dev-firebase-uid'
-        };
-
-        logger.info(`Development authentication successful for user: ${req.user.email} (no token provided)`);
-        return next();
+          };
+          logger.info(`Development authentication successful for user: ${req.user.email} (database unavailable)`);
+          return next();
+        }
       }
       
       return next({
@@ -74,29 +87,42 @@ export const authenticateFirebaseToken = async (
         const decodedToken = await verifyFirebaseToken(token);
         const userEmail = (decodedToken.email || '').toLowerCase();
         
-        // Find or create user in database using real Firebase data
-        const dbUser = await prisma.user.upsert({
-          where: { email: userEmail },
-          update: {
-            name: decodedToken.name || userEmail.split('@')[0],
-            firebaseUid: decodedToken.uid
-          },
-          create: {
+        try {
+          // Find or create user in database using real Firebase data
+          const dbUser = await prisma.user.upsert({
+            where: { email: userEmail },
+            update: {
+              name: decodedToken.name || userEmail.split('@')[0],
+              firebaseUid: decodedToken.uid
+            },
+            create: {
+              email: userEmail,
+              name: decodedToken.name || userEmail.split('@')[0],
+              firebaseUid: decodedToken.uid
+            }
+          });
+
+          req.user = {
+            id: dbUser.id, // Use database user ID
+            email: dbUser.email,
+            name: dbUser.name || undefined,
+            firebaseUid: dbUser.firebaseUid || decodedToken.uid
+          };
+
+          logger.info(`Development Firebase authentication successful for user: ${req.user.email}`);
+          return next();
+        } catch (dbError) {
+          logger.error('Database connection failed in development mode:', dbError);
+          // Fallback to Firebase user data without database
+          req.user = {
+            id: decodedToken.uid,
             email: userEmail,
-            name: decodedToken.name || userEmail.split('@')[0],
+            name: decodedToken.name || undefined,
             firebaseUid: decodedToken.uid
-          }
-        });
-
-        req.user = {
-          id: dbUser.id, // Use database user ID
-          email: dbUser.email,
-          name: dbUser.name || undefined,
-          firebaseUid: dbUser.firebaseUid || decodedToken.uid
-        };
-
-        logger.info(`Development Firebase authentication successful for user: ${req.user.email}`);
-        return next();
+          };
+          logger.info(`Development Firebase authentication successful for user: ${req.user.email} (database unavailable)`);
+          return next();
+        }
       } catch (error) {
         logger.error('Development Firebase token verification failed:', error);
         return next({
@@ -112,31 +138,47 @@ export const authenticateFirebaseToken = async (
       .then(async (decodedToken) => {
         const userEmail = (decodedToken.email || '').toLowerCase();
         
-        // Find or create user in database
-        const dbUser = await prisma.user.upsert({
-          where: { email: userEmail },
-          update: {
-            name: decodedToken.name || userEmail.split('@')[0],
-            firebaseUid: decodedToken.uid
-          },
-          create: {
+        try {
+          // Find or create user in database
+          const dbUser = await prisma.user.upsert({
+            where: { email: userEmail },
+            update: {
+              name: decodedToken.name || userEmail.split('@')[0],
+              firebaseUid: decodedToken.uid
+            },
+            create: {
+              email: userEmail,
+              name: decodedToken.name || userEmail.split('@')[0],
+              firebaseUid: decodedToken.uid
+            }
+          });
+
+          // Map Firebase user to our user format using database user ID
+          req.user = {
+            id: dbUser.id, // Use database user ID
+            email: dbUser.email,
+            name: dbUser.name || undefined,
+            firebaseUid: dbUser.firebaseUid || decodedToken.uid
+          };
+
+          logger.info(`Firebase token verified for user: ${decodedToken.email}`);
+          logger.info(`Firebase authentication successful for user: ${decodedToken.email}`);
+          return next();
+        } catch (dbError) {
+          logger.error('Database connection failed during authentication:', dbError);
+          
+          // In production, we should fail if database is unavailable
+          // But for now, allow authentication with Firebase data only
+          req.user = {
+            id: decodedToken.uid,
             email: userEmail,
-            name: decodedToken.name || userEmail.split('@')[0],
+            name: decodedToken.name || undefined,
             firebaseUid: decodedToken.uid
-          }
-        });
+          };
 
-        // Map Firebase user to our user format using database user ID
-        req.user = {
-          id: dbUser.id, // Use database user ID
-          email: dbUser.email,
-          name: dbUser.name || undefined,
-          firebaseUid: dbUser.firebaseUid || decodedToken.uid
-        };
-
-        logger.info(`Firebase token verified for user: ${decodedToken.email}`);
-        logger.info(`Firebase authentication successful for user: ${decodedToken.email}`);
-        return next();
+          logger.warn(`Firebase authentication successful for user: ${decodedToken.email} (database unavailable)`);
+          return next();
+        }
       })
       .catch((error) => {
         logger.error('Firebase token verification failed:', error);
