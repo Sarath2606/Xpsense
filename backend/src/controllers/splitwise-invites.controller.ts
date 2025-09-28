@@ -184,6 +184,12 @@ export class SplitwiseInvitesController {
       const { token } = req.body;
       const userId = req.user?.id;
 
+      console.log('🎯 Accept invitation request:', { 
+        token: token?.substring(0, 8) + '...', 
+        userId, 
+        userEmail: req.user?.email 
+      });
+
       if (!userId) {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -214,7 +220,38 @@ export class SplitwiseInvitesController {
       });
 
       if (!invitation) {
+        console.log('❌ Invitation not found or expired for token:', token?.substring(0, 8) + '...');
         return res.status(404).json({ error: "Invalid or expired invitation" });
+      }
+
+      console.log('✅ Invitation found:', { 
+        invitationEmail: invitation.email, 
+        groupId: invitation.groupId,
+        groupName: invitation.group.name 
+      });
+
+      // Verify that the logged-in user's email matches the invitation email
+      const currentUser = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true }
+      });
+
+      if (!currentUser) {
+        console.log('❌ Current user not found for userId:', userId);
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      console.log('🔍 Email comparison:', { 
+        currentUserEmail: currentUser.email, 
+        invitationEmail: invitation.email,
+        match: currentUser.email.toLowerCase() === invitation.email.toLowerCase()
+      });
+
+      if (currentUser.email.toLowerCase() !== invitation.email.toLowerCase()) {
+        console.log('❌ Email mismatch - invitation sent to different email');
+        return res.status(403).json({ 
+          error: "This invitation was sent to a different email address. Please log in with the email address that received the invitation." 
+        });
       }
 
       const existingMember = await prisma.splitwiseGroupMember.findUnique({
@@ -246,6 +283,13 @@ export class SplitwiseInvitesController {
       await prisma.splitwiseInvite.update({
         where: { id: invitation.id },
         data: { accepted: true, acceptedAt: new Date() }
+      });
+
+      console.log('🎉 Successfully added user to group:', {
+        userId,
+        userEmail: currentUser.email,
+        groupId: invitation.groupId,
+        groupName: invitation.group.name
       });
 
       res.json({
