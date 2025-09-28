@@ -9,6 +9,7 @@ import StatsView from './components/views/stats_view';
 import AdvisorView from './components/views/advisor_view';
 import SplitwiseViewPage from './components/views/splitwise_view';
 import ConnectBankModal from './components/accounts/connect_bank_modal';
+import InviteAcceptPage from './components/splitwise/InviteAcceptPage';
 import { useBudget } from './hooks/use_budget_hook';
 
 // Main app content component
@@ -57,6 +58,39 @@ const AppContent = () => {
     }
   }, [isAuthenticated, showAuthModal]);
 
+  // Handle pending invitation after login
+  React.useEffect(() => {
+    const handlePendingInvitation = async () => {
+      if (isAuthenticated && user) {
+        const pendingToken = localStorage.getItem('pendingInviteToken');
+        if (pendingToken) {
+          try {
+            console.log('🎯 Processing pending invitation after login:', pendingToken);
+            const response = await apiService.splitwise.invites.acceptInvite(pendingToken);
+            console.log('✅ Pending invitation accepted:', response);
+            
+            // Clear the pending token
+            localStorage.removeItem('pendingInviteToken');
+            
+            // Show success message and redirect to Splitwise
+            alert(`Successfully joined "${response.group.name}"!`);
+            setCurrentView('splitwise');
+          } catch (error) {
+            console.error('❌ Failed to accept pending invitation:', error);
+            localStorage.removeItem('pendingInviteToken');
+            alert('Failed to accept invitation: ' + (error.message || 'Invalid or expired invitation'));
+          }
+        }
+      }
+    };
+
+    handlePendingInvitation();
+  }, [isAuthenticated, user]);
+
+  // Check if we're on an invitation acceptance page
+  const isInviteAcceptPage = window.location.pathname === '/splitwise/invite/accept' || 
+                            window.location.hash.includes('splitwise/invite/accept');
+
   // Show loading screen while checking authentication
   if (loading) {
     return (
@@ -66,6 +100,19 @@ const AppContent = () => {
           <p className="mt-4 text-gray-600">Loading...</p>
         </div>
       </div>
+    );
+  }
+
+  // Show invitation acceptance page if on invite URL
+  if (isInviteAcceptPage) {
+    return (
+      <InviteAcceptPage 
+        onBack={() => setCurrentView('splitwise')}
+        onInviteAccepted={(response) => {
+          console.log('Invitation accepted:', response);
+          setCurrentView('splitwise');
+        }}
+      />
     );
   }
 
