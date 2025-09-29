@@ -11,6 +11,7 @@ import SplitwiseViewPage from './components/views/splitwise_view';
 import ConnectBankModal from './components/accounts/connect_bank_modal';
 import InviteAcceptPage from './components/splitwise/InviteAcceptPage';
 import { useBudget } from './hooks/use_budget_hook';
+import apiService from './config/api';
 
 // Main app content component
 const AppContent = () => {
