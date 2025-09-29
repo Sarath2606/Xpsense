@@ -241,13 +241,31 @@ export class SplitwiseInvitesController {
         return res.status(401).json({ error: "User not found" });
       }
 
-      console.log('🔍 Email comparison:', { 
-        currentUserEmail: currentUser.email, 
+      // Normalize emails for comparison (handle Gmail dot/plus aliases)
+      const normalizeEmail = (email: string) => {
+        const lower = (email || '').toLowerCase();
+        const [local, domain] = lower.split('@');
+        if (!local || !domain) return lower;
+        const isGmail = domain === 'gmail.com' || domain === 'googlemail.com';
+        if (!isGmail) return lower;
+        // Remove everything after '+' and remove dots in local part for Gmail
+        const localWithoutPlus = local.split('+')[0];
+        const localWithoutDots = localWithoutPlus.replace(/\./g, '');
+        return `${localWithoutDots}@gmail.com`;
+      };
+
+      const currentNormalized = normalizeEmail(currentUser.email);
+      const invitedNormalized = normalizeEmail(invitation.email);
+
+      console.log('🔍 Email comparison (normalized):', {
+        currentUserEmail: currentUser.email,
         invitationEmail: invitation.email,
-        match: currentUser.email.toLowerCase() === invitation.email.toLowerCase()
+        currentNormalized,
+        invitedNormalized,
+        match: currentNormalized === invitedNormalized
       });
 
-      if (currentUser.email.toLowerCase() !== invitation.email.toLowerCase()) {
+      if (currentNormalized !== invitedNormalized) {
         console.log('❌ Email mismatch - invitation sent to different email');
         return res.status(403).json({ 
           error: "This invitation was sent to a different email address. Please log in with the email address that received the invitation." 
