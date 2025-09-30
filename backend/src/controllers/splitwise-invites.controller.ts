@@ -241,9 +241,9 @@ export class SplitwiseInvitesController {
         return res.status(401).json({ error: "User not found" });
       }
 
-      // Normalize emails for comparison (handle Gmail dot/plus aliases)
+      // Normalize emails for comparison (handle Gmail dot/plus aliases and case sensitivity)
       const normalizeEmail = (email: string) => {
-        const lower = (email || '').toLowerCase();
+        const lower = (email || '').toLowerCase().trim();
         const [local, domain] = lower.split('@');
         if (!local || !domain) return lower;
         const isGmail = domain === 'gmail.com' || domain === 'googlemail.com';
@@ -265,7 +265,11 @@ export class SplitwiseInvitesController {
         match: currentNormalized === invitedNormalized
       });
 
-      if (currentNormalized !== invitedNormalized) {
+      // Allow invitation acceptance if emails match (with normalization) OR if the invitation email matches exactly
+      const exactMatch = currentUser.email.toLowerCase().trim() === invitation.email.toLowerCase().trim();
+      const normalizedMatch = currentNormalized === invitedNormalized;
+      
+      if (!exactMatch && !normalizedMatch) {
         console.log('❌ Email mismatch - invitation sent to different email');
         return res.status(403).json({ 
           error: "This invitation was sent to a different email address. Please log in with the email address that received the invitation." 
@@ -307,12 +311,18 @@ export class SplitwiseInvitesController {
         userId,
         userEmail: currentUser.email,
         groupId: invitation.groupId,
-        groupName: invitation.group.name
+        groupName: invitation.group.name,
+        memberRole: newMember.role
       });
 
       res.json({
         message: "Successfully joined the group",
-        group: invitation.group,
+        group: {
+          id: invitation.group.id,
+          name: invitation.group.name,
+          description: invitation.group.description,
+          createdAt: invitation.group.createdAt
+        },
         member: newMember
       });
     } catch (error) {

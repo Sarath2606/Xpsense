@@ -12,9 +12,15 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
   useEffect(() => {
     const handleInviteAcceptance = async () => {
       try {
-        // Get token from URL parameters
+        // Get token from URL parameters - check both search params and hash
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+        let token = urlParams.get('token');
+        
+        // If no token in search params, check hash fragment
+        if (!token && window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
+          token = hashParams.get('token');
+        }
 
         if (!token) {
           setError('No invitation token found in the URL');
@@ -50,7 +56,23 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
 
       } catch (err) {
         console.error('❌ Failed to accept invitation:', err);
-        setError(err.message || 'Failed to accept invitation. The invitation may be expired or invalid.');
+        let errorMessage = 'Failed to accept invitation. The invitation may be expired or invalid.';
+        
+        if (err.message) {
+          if (err.message.includes('Email mismatch')) {
+            errorMessage = 'This invitation was sent to a different email address. Please log in with the email address that received the invitation.';
+          } else if (err.message.includes('already a member')) {
+            errorMessage = 'You are already a member of this group.';
+          } else if (err.message.includes('expired')) {
+            errorMessage = 'This invitation has expired. Please request a new invitation.';
+          } else if (err.message.includes('Authentication required')) {
+            errorMessage = 'Please sign in to accept the invitation.';
+          } else {
+            errorMessage = err.message;
+          }
+        }
+        
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }

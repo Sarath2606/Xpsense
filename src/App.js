@@ -79,7 +79,13 @@ const AppContent = () => {
           } catch (error) {
             console.error('❌ Failed to accept pending invitation:', error);
             localStorage.removeItem('pendingInviteToken');
-            alert('Failed to accept invitation: ' + (error.message || 'Invalid or expired invitation'));
+            
+            let errorMessage = 'Failed to accept invitation: ' + (error.message || 'Invalid or expired invitation');
+            if (error.message && error.message.includes('Email mismatch')) {
+              errorMessage = 'This invitation was sent to a different email address. Please log in with the email address that received the invitation.';
+            }
+            
+            alert(errorMessage);
           }
         }
       }
@@ -90,7 +96,8 @@ const AppContent = () => {
 
   // Check if we're on an invitation acceptance page
   const isInviteAcceptPage = window.location.pathname === '/splitwise/invite/accept' || 
-                            window.location.hash.includes('splitwise/invite/accept');
+                            window.location.hash.includes('splitwise/invite/accept') ||
+                            window.location.search.includes('token=');
 
   // Show loading screen while checking authentication
   if (loading) {
