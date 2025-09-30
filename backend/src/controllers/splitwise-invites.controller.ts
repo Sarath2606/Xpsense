@@ -122,6 +122,12 @@ export class SplitwiseInvitesController {
         });
 
         if (existingMember) {
+          console.log('❌ Attempted to invite existing member:', {
+            email: email.trim(),
+            userId: existingUser.id,
+            groupId: id,
+            existingRole: existingMember.role
+          });
           return res.status(400).json({ error: "User is already a member of this group" });
         }
       }
