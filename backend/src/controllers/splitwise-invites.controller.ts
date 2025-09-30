@@ -176,6 +176,65 @@ export class SplitwiseInvitesController {
   }
 
   /**
+   * Check invitation status (no auth required for debugging)
+   * GET /api/splitwise/invites/check/:token
+   */
+  static async checkInvite(req: Request, res: Response) {
+    try {
+      const { token } = req.params;
+
+      console.log('🔍 Checking invitation status for token:', token?.substring(0, 8) + '...');
+
+      if (!token) {
+        return res.status(400).json({ error: "Invitation token is required" });
+      }
+
+      const invitation = await prisma.splitwiseInvite.findFirst({
+        where: { token },
+        include: {
+          group: {
+            select: {
+              id: true,
+              name: true,
+              description: true
+            }
+          }
+        }
+      });
+
+      if (!invitation) {
+        console.log('❌ Invitation not found for token:', token?.substring(0, 8) + '...');
+        return res.status(404).json({ error: "Invitation not found" });
+      }
+
+      const isExpired = new Date() > invitation.expiresAt;
+      const isAccepted = invitation.accepted;
+
+      console.log('✅ Invitation status:', {
+        invitationEmail: invitation.email,
+        groupName: invitation.group.name,
+        isExpired,
+        isAccepted,
+        expiresAt: invitation.expiresAt
+      });
+
+      res.json({
+        invitation: {
+          email: invitation.email,
+          group: invitation.group,
+          expiresAt: invitation.expiresAt,
+          accepted: invitation.accepted,
+          isExpired,
+          isAccepted
+        }
+      });
+    } catch (error) {
+      console.error("Check invite error:", error);
+      res.status(500).json({ error: "Failed to check invitation" });
+    }
+  }
+
+  /**
    * Accept invitation to join a group
    * POST /api/splitwise/invites/accept
    */
@@ -187,7 +246,9 @@ export class SplitwiseInvitesController {
       console.log('🎯 Accept invitation request:', { 
         token: token?.substring(0, 8) + '...', 
         userId, 
-        userEmail: req.user?.email 
+        userEmail: req.user?.email,
+        requestBody: req.body,
+        headers: req.headers
       });
 
       if (!userId) {

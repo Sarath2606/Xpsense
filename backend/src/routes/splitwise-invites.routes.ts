@@ -7,6 +7,9 @@ const router = Router();
 // SMTP health check (no auth required for debugging)
 router.get('/invites/health', SplitwiseInvitesController.checkSmtpHealth);
 
+// Check invitation status (no auth required for debugging)
+router.get('/invites/check/:token', SplitwiseInvitesController.checkInvite);
+
 // All other routes require Firebase authentication
 router.use(authenticateFirebaseToken);
 
