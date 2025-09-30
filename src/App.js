@@ -95,9 +95,18 @@ const AppContent = () => {
   }, [isAuthenticated, user]);
 
   // Check if we're on an invitation acceptance page
-  const isInviteAcceptPage = window.location.pathname === '/splitwise/invite/accept' || 
+  const isInviteAcceptPage = window.location.pathname.includes('/splitwise/invite/accept') || 
                             window.location.hash.includes('splitwise/invite/accept') ||
                             window.location.search.includes('token=');
+
+  // Debug URL detection
+  console.log('🔍 URL Detection Debug:', {
+    pathname: window.location.pathname,
+    hash: window.location.hash,
+    search: window.location.search,
+    fullUrl: window.location.href,
+    isInviteAcceptPage
+  });
 
   // Show loading screen while checking authentication
   if (loading) {
