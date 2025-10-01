@@ -40,6 +40,8 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
         console.log('🔍 Current URL:', window.location.href);
         console.log('🔍 URL search params:', window.location.search);
         console.log('🔍 URL hash:', window.location.hash);
+        console.log('🔍 User authenticated:', isAuthenticated);
+        console.log('🔍 User email:', user?.email);
 
         // Accept the invitation
         const response = await apiService.splitwise.invites.acceptInvite(token);
