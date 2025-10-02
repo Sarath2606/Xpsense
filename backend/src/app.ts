@@ -46,12 +46,16 @@ function isOriginAllowed(origin?: string): boolean {
   try {
     const url = new URL(origin);
     const host = url.hostname.toLowerCase();
+    
     // Exact matches from env
     if (allowedOrigins.includes(origin)) return true;
+    
     // Allow Cloudflare Pages preview domains for this project
     if (host.endsWith('.xpenses-app.pages.dev') || host === 'xpenses-app.pages.dev') return true;
+    
     // Optional: allow Vercel preview domains
     if (host.endsWith('.vercel.app')) return true;
+    
     return false;
   } catch {
     // Fallback to strict list if origin is not a valid URL
