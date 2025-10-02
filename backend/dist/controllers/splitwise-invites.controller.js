@@ -106,6 +106,12 @@ class SplitwiseInvitesController {
                     }
                 });
                 if (existingMember) {
+                    console.log('❌ Attempted to invite existing member:', {
+                        email: email.trim(),
+                        userId: existingUser.id,
+                        groupId: id,
+                        existingRole: existingMember.role
+                    });
                     return res.status(400).json({ error: "User is already a member of this group" });
                 }
             }
@@ -122,7 +128,7 @@ class SplitwiseInvitesController {
                 }
             });
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-            const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
+            const acceptUrl = `${frontendUrl}/#splitwise/invite/accept?token=${token}`;
             console.log('📧 Attempting to send invitation email to:', email.trim());
             email_service_1.EmailService.sendInvitationEmail({
                 to: email.trim(),
@@ -151,10 +157,65 @@ class SplitwiseInvitesController {
             return res.status(500).json({ error: "Failed to send invitation" });
         }
     }
+    static async checkInvite(req, res) {
+        try {
+            const { token } = req.params;
+            console.log('🔍 Checking invitation status for token:', token?.substring(0, 8) + '...');
+            if (!token) {
+                return res.status(400).json({ error: "Invitation token is required" });
+            }
+            const invitation = await prisma.splitwiseInvite.findFirst({
+                where: { token },
+                include: {
+                    group: {
+                        select: {
+                            id: true,
+                            name: true,
+                            description: true
+                        }
+                    }
+                }
+            });
+            if (!invitation) {
+                console.log('❌ Invitation not found for token:', token?.substring(0, 8) + '...');
+                return res.status(404).json({ error: "Invitation not found" });
+            }
+            const isExpired = new Date() > invitation.expiresAt;
+            const isAccepted = invitation.accepted;
+            console.log('✅ Invitation status:', {
+                invitationEmail: invitation.email,
+                groupName: invitation.group.name,
+                isExpired,
+                isAccepted,
+                expiresAt: invitation.expiresAt
+            });
+            res.json({
+                invitation: {
+                    email: invitation.email,
+                    group: invitation.group,
+                    expiresAt: invitation.expiresAt,
+                    accepted: invitation.accepted,
+                    isExpired,
+                    isAccepted
+                }
+            });
+        }
+        catch (error) {
+            console.error("Check invite error:", error);
+            res.status(500).json({ error: "Failed to check invitation" });
+        }
+    }
     static async acceptInvite(req, res) {
         try {
             const { token } = req.body;
             const userId = req.user?.id;
+            console.log('🎯 Accept invitation request:', {
+                token: token?.substring(0, 8) + '...',
+                userId,
+                userEmail: req.user?.email,
+                requestBody: req.body,
+                headers: req.headers
+            });
             if (!userId) {
                 return res.status(401).json({ error: "Authentication required" });
             }
@@ -182,7 +243,50 @@ class SplitwiseInvitesController {
                 }
             });
             if (!invitation) {
+                console.log('❌ Invitation not found or expired for token:', token?.substring(0, 8) + '...');
                 return res.status(404).json({ error: "Invalid or expired invitation" });
+            }
+            console.log('✅ Invitation found:', {
+                invitationEmail: invitation.email,
+                groupId: invitation.groupId,
+                groupName: invitation.group.name
+            });
+            const currentUser = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { email: true }
+            });
+            if (!currentUser) {
+                console.log('❌ Current user not found for userId:', userId);
+                return res.status(401).json({ error: "User not found" });
+            }
+            const normalizeEmail = (email) => {
+                const lower = (email || '').toLowerCase().trim();
+                const [local, domain] = lower.split('@');
+                if (!local || !domain)
+                    return lower;
+                const isGmail = domain === 'gmail.com' || domain === 'googlemail.com';
+                if (!isGmail)
+                    return lower;
+                const localWithoutPlus = local.split('+')[0];
+                const localWithoutDots = localWithoutPlus.replace(/\./g, '');
+                return `${localWithoutDots}@gmail.com`;
+            };
+            const currentNormalized = normalizeEmail(currentUser.email);
+            const invitedNormalized = normalizeEmail(invitation.email);
+            console.log('🔍 Email comparison (normalized):', {
+                currentUserEmail: currentUser.email,
+                invitationEmail: invitation.email,
+                currentNormalized,
+                invitedNormalized,
+                match: currentNormalized === invitedNormalized
+            });
+            const exactMatch = currentUser.email.toLowerCase().trim() === invitation.email.toLowerCase().trim();
+            const normalizedMatch = currentNormalized === invitedNormalized;
+            if (!exactMatch && !normalizedMatch) {
+                console.log('❌ Email mismatch - invitation sent to different email');
+                return res.status(403).json({
+                    error: "This invitation was sent to a different email address. Please log in with the email address that received the invitation."
+                });
             }
             const existingMember = await prisma.splitwiseGroupMember.findUnique({
                 where: {
@@ -211,9 +315,21 @@ class SplitwiseInvitesController {
                 where: { id: invitation.id },
                 data: { accepted: true, acceptedAt: new Date() }
             });
+            console.log('🎉 Successfully added user to group:', {
+                userId,
+                userEmail: currentUser.email,
+                groupId: invitation.groupId,
+                groupName: invitation.group.name,
+                memberRole: newMember.role
+            });
             res.json({
                 message: "Successfully joined the group",
-                group: invitation.group,
+                group: {
+                    id: invitation.group.id,
+                    name: invitation.group.name,
+                    description: invitation.group.description,
+                    createdAt: invitation.group.createdAt
+                },
                 member: newMember
             });
         }

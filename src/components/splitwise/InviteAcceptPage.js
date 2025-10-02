@@ -33,6 +33,7 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
           setLoading(false);
           // Store the token in localStorage so we can use it after login
           localStorage.setItem('pendingInviteToken', token);
+          console.log('🔐 User not authenticated, stored token for later processing:', token.substring(0, 8) + '...');
           return;
         }
 
@@ -183,12 +184,14 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
           )}
 
           {!isAuthenticated && (
-            <button
-              onClick={() => window.location.href = '/'}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Sign In
-            </button>
+            <div className="text-center">
+              <p className="text-sm text-gray-600 mb-4">
+                Please sign in using the form below to accept this invitation.
+              </p>
+              <p className="text-xs text-gray-500">
+                Your invitation token has been saved and will be processed automatically after you sign in.
+              </p>
+            </div>
           )}
         </div>
       </div>

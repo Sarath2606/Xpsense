@@ -149,7 +149,7 @@ export class SplitwiseInvitesController {
 
       // Build accept URL to return to client regardless of email delivery
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
+      const acceptUrl = `${frontendUrl}/#splitwise/invite/accept?token=${token}`;
 
       // Fire-and-forget email sending so the API responds immediately
       console.log('📧 Attempting to send invitation email to:', email.trim());

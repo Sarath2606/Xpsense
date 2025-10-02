@@ -17,26 +17,39 @@ const authenticateFirebaseToken = async (req, res, next) => {
         if (!token) {
             if (process.env.NODE_ENV === 'development') {
                 const userEmail = 'smilysarath26@gmail.com';
-                const dbUser = await prisma.user.upsert({
-                    where: { email: userEmail },
-                    update: {
-                        name: 'Development User',
-                        firebaseUid: 'dev-firebase-uid'
-                    },
-                    create: {
+                try {
+                    const dbUser = await prisma.user.upsert({
+                        where: { email: userEmail },
+                        update: {
+                            name: 'Development User',
+                            firebaseUid: 'dev-firebase-uid'
+                        },
+                        create: {
+                            email: userEmail,
+                            name: 'Development User',
+                            firebaseUid: 'dev-firebase-uid'
+                        }
+                    });
+                    req.user = {
+                        id: dbUser.id,
+                        email: dbUser.email,
+                        name: dbUser.name || undefined,
+                        firebaseUid: dbUser.firebaseUid || 'dev-firebase-uid'
+                    };
+                    logger_1.logger.info(`Development authentication successful for user: ${req.user.email} (no token provided)`);
+                    return next();
+                }
+                catch (dbError) {
+                    logger_1.logger.error('Database connection failed in development mode:', dbError);
+                    req.user = {
+                        id: 'dev-user-id',
                         email: userEmail,
                         name: 'Development User',
                         firebaseUid: 'dev-firebase-uid'
-                    }
-                });
-                req.user = {
-                    id: dbUser.id,
-                    email: dbUser.email,
-                    name: dbUser.name || undefined,
-                    firebaseUid: dbUser.firebaseUid || 'dev-firebase-uid'
-                };
-                logger_1.logger.info(`Development authentication successful for user: ${req.user.email} (no token provided)`);
-                return next();
+                    };
+                    logger_1.logger.info(`Development authentication successful for user: ${req.user.email} (database unavailable)`);
+                    return next();
+                }
             }
             return next({
                 name: 'UnauthorizedError',
@@ -48,6 +61,53 @@ const authenticateFirebaseToken = async (req, res, next) => {
             try {
                 const decodedToken = await (0, firebase_1.verifyFirebaseToken)(token);
                 const userEmail = (decodedToken.email || '').toLowerCase();
+                try {
+                    const dbUser = await prisma.user.upsert({
+                        where: { email: userEmail },
+                        update: {
+                            name: decodedToken.name || userEmail.split('@')[0],
+                            firebaseUid: decodedToken.uid
+                        },
+                        create: {
+                            email: userEmail,
+                            name: decodedToken.name || userEmail.split('@')[0],
+                            firebaseUid: decodedToken.uid
+                        }
+                    });
+                    req.user = {
+                        id: dbUser.id,
+                        email: dbUser.email,
+                        name: dbUser.name || undefined,
+                        firebaseUid: dbUser.firebaseUid || decodedToken.uid
+                    };
+                    logger_1.logger.info(`Development Firebase authentication successful for user: ${req.user.email}`);
+                    return next();
+                }
+                catch (dbError) {
+                    logger_1.logger.error('Database connection failed in development mode:', dbError);
+                    req.user = {
+                        id: decodedToken.uid,
+                        email: userEmail,
+                        name: decodedToken.name || undefined,
+                        firebaseUid: decodedToken.uid
+                    };
+                    logger_1.logger.info(`Development Firebase authentication successful for user: ${req.user.email} (database unavailable)`);
+                    return next();
+                }
+            }
+            catch (error) {
+                logger_1.logger.error('Development Firebase token verification failed:', error);
+                return next({
+                    name: 'FirebaseAuthError',
+                    message: 'Invalid Firebase token in development',
+                    statusCode: 401,
+                });
+            }
+        }
+        (0, firebase_1.verifyFirebaseToken)(token)
+            .then(async (decodedToken) => {
+            const userEmail = (decodedToken.email || '').toLowerCase();
+            try {
                 const dbUser = await prisma.user.upsert({
                     where: { email: userEmail },
                     update: {
@@ -66,42 +126,21 @@ const authenticateFirebaseToken = async (req, res, next) => {
                     name: dbUser.name || undefined,
                     firebaseUid: dbUser.firebaseUid || decodedToken.uid
                 };
-                logger_1.logger.info(`Development Firebase authentication successful for user: ${req.user.email}`);
+                logger_1.logger.info(`Firebase token verified for user: ${decodedToken.email}`);
+                logger_1.logger.info(`Firebase authentication successful for user: ${decodedToken.email}`);
                 return next();
             }
-            catch (error) {
-                logger_1.logger.error('Development Firebase token verification failed:', error);
-                return next({
-                    name: 'FirebaseAuthError',
-                    message: 'Invalid Firebase token in development',
-                    statusCode: 401,
-                });
-            }
-        }
-        (0, firebase_1.verifyFirebaseToken)(token)
-            .then(async (decodedToken) => {
-            const userEmail = (decodedToken.email || '').toLowerCase();
-            const dbUser = await prisma.user.upsert({
-                where: { email: userEmail },
-                update: {
-                    name: decodedToken.name || userEmail.split('@')[0],
-                    firebaseUid: decodedToken.uid
-                },
-                create: {
+            catch (dbError) {
+                logger_1.logger.error('Database connection failed during authentication:', dbError);
+                req.user = {
+                    id: decodedToken.uid,
                     email: userEmail,
-                    name: decodedToken.name || userEmail.split('@')[0],
+                    name: decodedToken.name || undefined,
                     firebaseUid: decodedToken.uid
-                }
-            });
-            req.user = {
-                id: dbUser.id,
-                email: dbUser.email,
-                name: dbUser.name || undefined,
-                firebaseUid: dbUser.firebaseUid || decodedToken.uid
-            };
-            logger_1.logger.info(`Firebase token verified for user: ${decodedToken.email}`);
-            logger_1.logger.info(`Firebase authentication successful for user: ${decodedToken.email}`);
-            return next();
+                };
+                logger_1.logger.warn(`Firebase authentication successful for user: ${decodedToken.email} (database unavailable)`);
+                return next();
+            }
         })
             .catch((error) => {
             logger_1.logger.error('Firebase token verification failed:', error);

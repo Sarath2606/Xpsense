@@ -94,10 +94,27 @@ const AppContent = () => {
     handlePendingInvitation();
   }, [isAuthenticated, user]);
 
+  // Handle legacy invite URLs (without hash) by redirecting to hash-based URLs
+  React.useEffect(() => {
+    const pathname = window.location.pathname;
+    const search = window.location.search;
+    
+    // If user clicked an old-style invite link (path-based instead of hash-based)
+    if (pathname.includes('/splitwise/invite/accept') && search.includes('token=')) {
+      const token = new URLSearchParams(search).get('token');
+      if (token) {
+        // Redirect to hash-based URL
+        const newUrl = `/#splitwise/invite/accept?token=${token}`;
+        console.log('🔄 Redirecting legacy invite URL to:', newUrl);
+        window.location.href = newUrl;
+        return;
+      }
+    }
+  }, []);
+
   // Check if we're on an invitation acceptance page
-  const isInviteAcceptPage = window.location.pathname.includes('/splitwise/invite/accept') || 
-                            window.location.hash.includes('splitwise/invite/accept') ||
-                            window.location.search.includes('token=');
+  const isInviteAcceptPage = window.location.hash.includes('splitwise/invite/accept') ||
+                            window.location.hash.includes('token=');
 
   // Debug URL detection
   console.log('🔍 URL Detection Debug:', {
@@ -123,13 +140,29 @@ const AppContent = () => {
   // Show invitation acceptance page if on invite URL
   if (isInviteAcceptPage) {
     return (
-      <InviteAcceptPage 
-        onBack={() => setCurrentView('splitwise')}
-        onInviteAccepted={(response) => {
-          console.log('Invitation accepted:', response);
-          setCurrentView('splitwise');
-        }}
-      />
+      <div className="min-h-screen bg-gray-50">
+        <InviteAcceptPage 
+          onBack={() => setCurrentView('splitwise')}
+          onInviteAccepted={(response) => {
+            console.log('Invitation accepted:', response);
+            setCurrentView('splitwise');
+          }}
+        />
+        {/* Show auth modal if not authenticated and on invite page */}
+        {!isAuthenticated && (
+          <AuthModal
+            isOpen={true}
+            onClose={() => {}} // Prevent closing - user must authenticate to accept invite
+            onGoogleSignIn={signInWithGoogle}
+            onEmailSignIn={signInWithEmail}
+            onEmailSignUp={signUpWithEmail}
+            onResetPassword={resetPassword}
+            loading={loading}
+            error={error}
+            isAuthenticated={isAuthenticated}
+          />
+        )}
+      </div>
     );
   }
 

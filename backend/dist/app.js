@@ -15,6 +15,7 @@ const compression_1 = __importDefault(require("compression"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const client_1 = require("@prisma/client");
+require("./config/database");
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const accounts_routes_1 = __importDefault(require("./routes/accounts.routes"));
 const transactions_routes_1 = __importDefault(require("./routes/transactions.routes"));
@@ -34,9 +35,31 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,ht
     .split(',')
     .map(o => o.trim())
     .filter(Boolean);
+function isOriginAllowed(origin) {
+    if (!origin)
+        return true;
+    try {
+        const url = new URL(origin);
+        const host = url.hostname.toLowerCase();
+        if (allowedOrigins.includes(origin))
+            return true;
+        if (host.endsWith('.xpenses-app.pages.dev'))
+            return true;
+        if (host.endsWith('.vercel.app'))
+            return true;
+        return false;
+    }
+    catch {
+        return allowedOrigins.includes(origin);
+    }
+}
 exports.io = new socket_io_1.Server(server, {
     cors: {
-        origin: allowedOrigins,
+        origin: (origin, callback) => {
+            if (isOriginAllowed(origin))
+                return callback(null, true);
+            callback(new Error('Not allowed by CORS'));
+        },
         credentials: true,
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
@@ -88,7 +111,11 @@ exports.io.on('connection', (socket) => {
 });
 app.use((0, helmet_1.default)());
 app.use((0, cors_1.default)({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+        if (isOriginAllowed(origin))
+            return callback(null, true);
+        callback(new Error('Not allowed by CORS'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']

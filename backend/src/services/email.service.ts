@@ -66,7 +66,7 @@ export class EmailService {
       sgMail.setApiKey(process.env.SENDGRID_API_KEY!);
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
+      const acceptUrl = `${frontendUrl}/#splitwise/invite/accept?token=${token}`;
 
       const emailContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -208,7 +208,7 @@ export class EmailService {
       }
 
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      const acceptUrl = `${frontendUrl}/splitwise/invite/accept?token=${token}`;
+      const acceptUrl = `${frontendUrl}/#splitwise/invite/accept?token=${token}`;
 
       const emailContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
