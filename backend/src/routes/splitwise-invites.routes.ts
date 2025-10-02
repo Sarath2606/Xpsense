@@ -10,6 +10,9 @@ router.get('/invites/health', SplitwiseInvitesController.checkSmtpHealth);
 // Check invitation status (no auth required for debugging)
 router.get('/invites/check/:token', SplitwiseInvitesController.checkInvite);
 
+// Debug endpoint to check all pending invitations for an email (no auth required for debugging)
+router.get('/invites/debug/:email', SplitwiseInvitesController.debugInvites);
+
 // All other routes require Firebase authentication
 router.use(authenticateFirebaseToken);
 

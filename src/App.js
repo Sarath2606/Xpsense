@@ -127,8 +127,22 @@ const AppContent = () => {
     hash: window.location.hash,
     search: window.location.search,
     fullUrl: window.location.href,
-    isInviteAcceptPage
+    isInviteAcceptPage,
+    timestamp: new Date().toISOString()
   });
+
+  // Add debug function to global scope for testing
+  window.debugInviteFlow = () => {
+    console.log('🔍 Invite Flow Debug:', {
+      url: window.location.href,
+      hash: window.location.hash,
+      search: window.location.search,
+      isInviteAcceptPage,
+      pendingToken: localStorage.getItem('pendingInviteToken'),
+      isAuthenticated,
+      user: user ? { id: user.uid, email: user.email } : null
+    });
+  };
 
   // Show loading screen while checking authentication
   if (loading) {
