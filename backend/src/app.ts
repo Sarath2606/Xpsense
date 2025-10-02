@@ -9,6 +9,7 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
+import './config/database'; // Initialize database URL
 
 // Import routes
 import authRoutes from './routes/auth.routes';
@@ -34,7 +35,7 @@ const PORT = process.env.PORT || 3001;
 const server = http.createServer(app);
 
 // Resolve allowed origins from env (comma-separated)
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,https://xpenses-app.pages.dev')
   .split(',')
   .map(o => o.trim())
   .filter(Boolean);
@@ -48,7 +49,7 @@ function isOriginAllowed(origin?: string): boolean {
     // Exact matches from env
     if (allowedOrigins.includes(origin)) return true;
     // Allow Cloudflare Pages preview domains for this project
-    if (host.endsWith('.xpenses-app.pages.dev')) return true;
+    if (host.endsWith('.xpenses-app.pages.dev') || host === 'xpenses-app.pages.dev') return true;
     // Optional: allow Vercel preview domains
     if (host.endsWith('.vercel.app')) return true;
     return false;
