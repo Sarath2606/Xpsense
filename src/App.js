@@ -75,7 +75,12 @@ const AppContent = () => {
             
             // Show success message and redirect to Splitwise
             alert(`Successfully joined "${response.group.name}"!`);
-            setCurrentView('splitwise');
+            
+            // Force refresh groups by clearing the loaded flag
+            window.dispatchEvent(new CustomEvent('forceRefreshGroups'));
+            
+            // Redirect to Splitwise with refresh parameter
+            window.location.href = '/#splitwise?refresh=groups';
           } catch (error) {
             console.error('❌ Failed to accept pending invitation:', error);
             localStorage.removeItem('pendingInviteToken');

@@ -55,9 +55,12 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
         // Call the callback if provided
         onInviteAccepted?.(response);
         
-        // Redirect to Splitwise view after 3 seconds
+        // Force refresh groups by clearing the loaded flag
+        window.dispatchEvent(new CustomEvent('forceRefreshGroups'));
+        
+        // Redirect to Splitwise view after 3 seconds with refresh parameter
         setTimeout(() => {
-          window.location.href = '/#splitwise';
+          window.location.href = '/#splitwise?refresh=groups';
         }, 3000);
 
       } catch (err) {

@@ -22,7 +22,6 @@ const GroupList = ({ groups, onSelectGroup, onCreateGroup, onDeleteGroup, onJoin
   return (
     <div className="h-full">
 
-
       {/* Groups Grid */}
       {loading ? (
         <div className="text-center py-12">

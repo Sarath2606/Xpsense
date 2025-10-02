@@ -157,6 +157,26 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     }
   }, [user, authHookAuthenticated, loadGroups]);
 
+  // Additional check for pending invite processing - force refresh if user just logged in
+  useEffect(() => {
+    const checkPendingInvite = () => {
+      const pendingToken = localStorage.getItem('pendingInviteToken');
+      if (!pendingToken && authHookAuthenticated && user && groupsLoadedRef.current) {
+        // User just completed invite acceptance, force a refresh
+        console.log('SplitwiseView: User just completed invite acceptance, forcing refresh...');
+        groupsLoadedRef.current = false;
+        loadingRef.current = false;
+        setTimeout(() => {
+          loadGroups(true);
+        }, 500);
+      }
+    };
+
+    // Check after a delay to allow invite processing to complete
+    const timer = setTimeout(checkPendingInvite, 1000);
+    return () => clearTimeout(timer);
+  }, [authHookAuthenticated, user, loadGroups]);
+
   // Load groups from API on component mount - only once when authenticated
   useEffect(() => {
     // Only load groups if user is authenticated and groups haven't been loaded
@@ -191,6 +211,50 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     }
   }, [authHookAuthenticated]);
 
+  // Listen for force refresh events (e.g., after accepting an invite)
+  useEffect(() => {
+    const handleForceRefresh = () => {
+      console.log('SplitwiseView: Force refresh requested, reloading groups...');
+      setAuthError(null);
+      groupsLoadedRef.current = false;
+      loadingRef.current = false;
+      
+      // Add a small delay to ensure the event is processed
+      setTimeout(() => {
+        loadGroups(true); // Force refresh
+      }, 100);
+    };
+
+    window.addEventListener('forceRefreshGroups', handleForceRefresh);
+    
+    return () => {
+      window.removeEventListener('forceRefreshGroups', handleForceRefresh);
+    };
+  }, [loadGroups]);
+
+  // Check for refresh parameter in URL (e.g., after invite acceptance)
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const shouldRefresh = urlParams.get('refresh') === 'groups';
+    
+    if (shouldRefresh && authHookAuthenticated && user) {
+      console.log('SplitwiseView: Refresh parameter detected, forcing group refresh...');
+      setAuthError(null);
+      groupsLoadedRef.current = false;
+      loadingRef.current = false;
+      
+      // Add a small delay to ensure auth state is fully ready
+      setTimeout(() => {
+        loadGroups(true);
+        
+        // Clean up the URL parameter after refresh
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.delete('refresh');
+        window.history.replaceState({}, '', newUrl);
+      }, 200);
+    }
+  }, [authHookAuthenticated, user, loadGroups]);
+
   // Manual retry function for rate limiting
   const handleRetry = useCallback(() => {
     setAuthError(null);
@@ -198,6 +262,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     loadingRef.current = false;
     loadGroups();
   }, [loadGroups]);
+
 
   // Manual refresh function
   const handleRefreshGroups = useCallback(() => {
