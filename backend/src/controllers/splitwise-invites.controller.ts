@@ -321,7 +321,7 @@ export class SplitwiseInvitesController {
         token: token?.substring(0, 8) + '...', 
         userId, 
         userEmail: req.user?.email,
-        userUid: req.user?.uid,
+        userUid: req.user?.firebaseUid,
         requestBody: req.body,
         headers: req.headers,
         timestamp: new Date().toISOString()
@@ -433,7 +433,7 @@ export class SplitwiseInvitesController {
           group: invitation.group,
           membership: {
             role: existingMember.role,
-            joinedAt: existingMember.createdAt
+            joinedAt: existingMember.joinedAt
           }
         });
       }
