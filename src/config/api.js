@@ -38,10 +38,17 @@ class ApiService {
   }
 
   // Create headers with Firebase authentication
-  async getHeaders(includeAuth = true) {
+  async getHeaders(includeAuth = true, forceRefresh = false) {
     const headers = {
       'Content-Type': 'application/json',
     };
+
+    // Add cache-busting headers to prevent 304 responses
+    if (forceRefresh) {
+      headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+      headers['Pragma'] = 'no-cache';
+      headers['Expires'] = '0';
+    }
 
     if (includeAuth) {
       try {
@@ -85,7 +92,7 @@ class ApiService {
 
       try {
         const url = `${this.baseURL}${endpoint}`;
-        const headers = await this.getHeaders(options.includeAuth !== false);
+        const headers = await this.getHeaders(options.includeAuth !== false, options.forceRefresh);
         
         const { signal } = controller;
         const { silent, maxRetries: _mr, baseDelay: _bd, timeoutMs: _tm, ...rest } = options;
@@ -317,8 +324,8 @@ class ApiService {
   splitwise = {
     // Groups
     groups: {
-      getAll: () => 
-        this.request('/splitwise/groups'),
+      getAll: (forceRefresh = false) => 
+        this.request('/splitwise/groups', { forceRefresh }),
 
       getById: (groupId) => 
         this.request(`/splitwise/groups/${groupId}`),

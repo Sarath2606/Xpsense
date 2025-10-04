@@ -64,7 +64,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       console.log('SplitwiseView: Attempting to load groups...', forceRefresh ? '(forced refresh)' : '');
       
       // Call the API directly without timeout wrapper to avoid abort signal issues
-      const response = await groupsApi.getAll();
+      const response = await groupsApi.getAll(forceRefresh);
       
       // Always update groups
       const newGroups = response.groups || [];
@@ -736,6 +736,7 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
                  onCreateGroup={handleShowCreateGroup}
                  onDeleteGroup={handleDeleteGroup}
                  onJoinGroup={handleShowAcceptInvite}
+                 onRefresh={() => loadGroups(true)}
                  loading={false}
                />
              )}
