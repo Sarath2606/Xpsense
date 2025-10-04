@@ -321,6 +321,7 @@ export class SplitwiseInvitesController {
         token: token?.substring(0, 8) + '...', 
         userId, 
         userEmail: req.user?.email,
+        userUid: req.user?.uid,
         requestBody: req.body,
         headers: req.headers,
         timestamp: new Date().toISOString()
@@ -422,7 +423,19 @@ export class SplitwiseInvitesController {
       });
 
       if (existingMember) {
-        return res.status(400).json({ error: "You are already a member of this group" });
+        console.log('❌ User is already a member of this group:', {
+          userId,
+          groupId: invitation.groupId,
+          existingRole: existingMember.role
+        });
+        return res.status(400).json({ 
+          error: "You are already a member of this group",
+          group: invitation.group,
+          membership: {
+            role: existingMember.role,
+            joinedAt: existingMember.createdAt
+          }
+        });
       }
 
       const newMember = await prisma.splitwiseGroupMember.create({

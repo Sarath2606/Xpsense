@@ -21,6 +21,15 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
           const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || '');
           token = hashParams.get('token');
         }
+        
+        // Also check if token is in the hash path itself (for direct hash URLs)
+        if (!token && window.location.hash.includes('token=')) {
+          const hashSearch = window.location.hash.split('?')[1];
+          if (hashSearch) {
+            const hashParams = new URLSearchParams(hashSearch);
+            token = hashParams.get('token');
+          }
+        }
 
         if (!token) {
           setError('No invitation token found in the URL');
@@ -37,12 +46,13 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
           return;
         }
 
-        console.log('🎯 Accepting invitation with token:', token);
+        console.log('🎯 Accepting invitation with token:', token?.substring(0, 8) + '...');
         console.log('🔍 Current URL:', window.location.href);
         console.log('🔍 URL search params:', window.location.search);
         console.log('🔍 URL hash:', window.location.hash);
         console.log('🔍 User authenticated:', isAuthenticated);
         console.log('🔍 User email:', user?.email);
+        console.log('🔍 User ID:', user?.uid);
         console.log('🔍 Timestamp:', new Date().toISOString());
 
         // Accept the invitation
@@ -71,12 +81,22 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
         if (err.message) {
           if (err.message.includes('Email mismatch')) {
             errorMessage = 'This invitation was sent to a different email address. Please log in with the email address that received the invitation.';
-          } else if (err.message.includes('already a member')) {
-            errorMessage = 'You are already a member of this group.';
-          } else if (err.message.includes('expired')) {
+          } else if (err.message.includes('already a member') || err.message.includes('User is already a member')) {
+            errorMessage = 'You are already a member of this group. Redirecting you to the group...';
+            // Auto-redirect to Splitwise after 2 seconds
+            setTimeout(() => {
+              window.location.href = '/#splitwise';
+            }, 2000);
+          } else if (err.message.includes('expired') || err.message.includes('Invalid or expired')) {
             errorMessage = 'This invitation has expired. Please request a new invitation.';
           } else if (err.message.includes('Authentication required')) {
             errorMessage = 'Please sign in to accept the invitation.';
+          } else if (err.message.includes('not found') || err.message.includes('Invalid')) {
+            errorMessage = 'This invitation is no longer valid. You may already be a member of the group or the invitation has been cancelled.';
+            // Auto-redirect to Splitwise after 3 seconds
+            setTimeout(() => {
+              window.location.href = '/#splitwise';
+            }, 3000);
           } else {
             errorMessage = err.message;
           }

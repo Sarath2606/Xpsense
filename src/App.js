@@ -119,7 +119,8 @@ const AppContent = () => {
 
   // Check if we're on an invitation acceptance page
   const isInviteAcceptPage = window.location.hash.includes('splitwise/invite/accept') ||
-                            window.location.hash.includes('token=');
+                            window.location.hash.includes('token=') ||
+                            window.location.search.includes('token=');
 
   // Debug URL detection
   console.log('🔍 URL Detection Debug:', {
