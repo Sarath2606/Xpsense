@@ -15,7 +15,14 @@ const compression_1 = __importDefault(require("compression"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const client_1 = require("@prisma/client");
-require("./config/database");
+try {
+    require('./config/database');
+}
+catch (err) {
+    if (!process.env.DATABASE_URL) {
+        console.warn('Database config helper not found and DATABASE_URL is not set. Proceeding; ensure DATABASE_URL is provided by the environment.');
+    }
+}
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const accounts_routes_1 = __importDefault(require("./routes/accounts.routes"));
 const transactions_routes_1 = __importDefault(require("./routes/transactions.routes"));
@@ -31,7 +38,7 @@ const prisma = new client_1.PrismaClient();
 app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const server = http_1.default.createServer(app);
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,https://xpenses-app.pages.dev')
     .split(',')
     .map(o => o.trim())
     .filter(Boolean);
@@ -43,7 +50,7 @@ function isOriginAllowed(origin) {
         const host = url.hostname.toLowerCase();
         if (allowedOrigins.includes(origin))
             return true;
-        if (host.endsWith('.xpenses-app.pages.dev'))
+        if (host.endsWith('.xpenses-app.pages.dev') || host === 'xpenses-app.pages.dev')
             return true;
         if (host.endsWith('.vercel.app'))
             return true;

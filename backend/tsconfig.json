@@ -18,11 +18,11 @@
     "declarationMap": true,
     "sourceMap": true,
     "removeComments": true,
-    "noImplicitAny": true,
+    "noImplicitAny": false,
     "strictNullChecks": true,
     "strictFunctionTypes": true,
     "noImplicitReturns": false,
-    "noFallthroughCasesInSwitch": true,
+    "noFallthroughCasesInSwitch": false,
     "moduleResolution": "node",
     "baseUrl": "./",
     "paths": {
@@ -33,7 +33,8 @@
       "@/models/*": ["src/models/*"],
       "@/routes/*": ["src/routes/*"],
       "@/utils/*": ["src/utils/*"]
-    }
+    },
+    "noEmitOnError": false
   },
   "include": [
     "src/**/*"

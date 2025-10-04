@@ -9,7 +9,15 @@ import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import { PrismaClient } from '@prisma/client';
-import './config/database'; // Initialize database URL
+// Try to initialize DATABASE_URL from our helper if present; fall back to env
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  require('./config/database');
+} catch (err) {
+  if (!process.env.DATABASE_URL) {
+    console.warn('Database config helper not found and DATABASE_URL is not set. Proceeding; ensure DATABASE_URL is provided by the environment.');
+  }
+}
 
 // Import routes
 import authRoutes from './routes/auth.routes';

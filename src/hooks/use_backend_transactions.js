@@ -220,6 +220,7 @@ export const useBackendTransactions = () => {
         ]);
       } catch (error) {
         console.error('Failed to load initial transaction data:', error);
+        // Don't rethrow the error to prevent unhandled promise rejections
       }
     };
 

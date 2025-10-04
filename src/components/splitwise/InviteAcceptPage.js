@@ -43,6 +43,7 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
         console.log('🔍 URL hash:', window.location.hash);
         console.log('🔍 User authenticated:', isAuthenticated);
         console.log('🔍 User email:', user?.email);
+        console.log('🔍 Timestamp:', new Date().toISOString());
 
         // Accept the invitation
         const response = await apiService.splitwise.invites.acceptInvite(token);

@@ -205,6 +205,65 @@ class SplitwiseInvitesController {
             res.status(500).json({ error: "Failed to check invitation" });
         }
     }
+    static async debugInvites(req, res) {
+        try {
+            const { email } = req.params;
+            console.log('🔍 Debug invites for email:', email);
+            const invitations = await prisma.splitwiseInvite.findMany({
+                where: {
+                    email: email.toLowerCase().trim(),
+                    expiresAt: { gt: new Date() }
+                },
+                include: {
+                    group: {
+                        select: { id: true, name: true }
+                    }
+                },
+                orderBy: { createdAt: 'desc' }
+            });
+            const user = await prisma.user.findUnique({
+                where: { email: email.toLowerCase().trim() },
+                select: { id: true, email: true, name: true, firebaseUid: true }
+            });
+            console.log('🔍 Debug results:', {
+                email,
+                userExists: !!user,
+                userId: user?.id,
+                pendingInvitations: invitations.length,
+                invitations: invitations.map(inv => ({
+                    id: inv.id,
+                    token: inv.token.substring(0, 8) + '...',
+                    groupId: inv.groupId,
+                    groupName: inv.group.name,
+                    accepted: inv.accepted,
+                    expiresAt: inv.expiresAt
+                }))
+            });
+            res.json({
+                email,
+                userExists: !!user,
+                user: user ? {
+                    id: user.id,
+                    email: user.email,
+                    name: user.name,
+                    firebaseUid: user.firebaseUid
+                } : null,
+                pendingInvitations: invitations.length,
+                invitations: invitations.map(inv => ({
+                    id: inv.id,
+                    token: inv.token.substring(0, 8) + '...',
+                    groupId: inv.groupId,
+                    groupName: inv.group.name,
+                    accepted: inv.accepted,
+                    expiresAt: inv.expiresAt
+                }))
+            });
+        }
+        catch (error) {
+            console.error("Debug invites error:", error);
+            res.status(500).json({ error: "Failed to debug invitations" });
+        }
+    }
     static async acceptInvite(req, res) {
         try {
             const { token } = req.body;
@@ -214,7 +273,8 @@ class SplitwiseInvitesController {
                 userId,
                 userEmail: req.user?.email,
                 requestBody: req.body,
-                headers: req.headers
+                headers: req.headers,
+                timestamp: new Date().toISOString()
             });
             if (!userId) {
                 return res.status(401).json({ error: "Authentication required" });
@@ -320,7 +380,8 @@ class SplitwiseInvitesController {
                 userEmail: currentUser.email,
                 groupId: invitation.groupId,
                 groupName: invitation.group.name,
-                memberRole: newMember.role
+                memberRole: newMember.role,
+                timestamp: new Date().toISOString()
             });
             res.json({
                 message: "Successfully joined the group",

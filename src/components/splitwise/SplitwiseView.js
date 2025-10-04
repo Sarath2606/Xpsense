@@ -63,15 +63,8 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       loadingRef.current = true;
       console.log('SplitwiseView: Attempting to load groups...', forceRefresh ? '(forced refresh)' : '');
       
-      // Add a timeout to prevent hanging requests
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Request timeout')), 12000); // 12 second timeout for better UX
-      });
-      
-      const response = await Promise.race([
-        groupsApi.getAll(),
-        timeoutPromise
-      ]);
+      // Call the API directly without timeout wrapper to avoid abort signal issues
+      const response = await groupsApi.getAll();
       
       // Always update groups
       const newGroups = response.groups || [];

@@ -72,7 +72,16 @@ class ApiService {
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       // Setup timeout controller per attempt
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      let timeoutId = null;
+      
+      // Only set timeout if not already aborted
+      if (!controller.signal.aborted) {
+        timeoutId = setTimeout(() => {
+          if (!controller.signal.aborted) {
+            controller.abort();
+          }
+        }, timeoutMs);
+      }
 
       try {
         const url = `${this.baseURL}${endpoint}`;
@@ -88,7 +97,11 @@ class ApiService {
         };
 
         const response = await fetch(url, config);
-        clearTimeout(timeoutId);
+        
+        // Clear timeout only if it was set
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
         
         // Handle 401 Unauthorized
         if (response.status === 401) {
@@ -124,7 +137,11 @@ class ApiService {
         // Return JSON response
         return await response.json();
       } catch (error) {
-        clearTimeout(timeoutId);
+        // Clear timeout only if it was set
+        if (timeoutId) {
+          clearTimeout(timeoutId);
+        }
+        
         if (attempt === maxRetries) {
           if (!isSilent) console.error('API Request Error:', error);
           throw error;
