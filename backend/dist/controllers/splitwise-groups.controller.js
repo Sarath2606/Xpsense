@@ -19,6 +19,7 @@ class SplitwiseGroupsController {
             if (!Array.isArray(members)) {
                 return res.status(400).json({ error: "Members must be an array" });
             }
+            console.log('🔄 Starting group creation transaction...');
             const result = await prisma.$transaction(async (tx) => {
                 const creatorUser = await tx.user.upsert({
                     where: { email: userEmail },
@@ -84,6 +85,7 @@ class SplitwiseGroupsController {
                     data: membersToCreate,
                     skipDuplicates: true
                 });
+                console.log('✅ Group creation transaction completed successfully');
                 return await tx.splitwiseGroup.findUnique({
                     where: { id: group.id },
                     include: {
@@ -115,7 +117,12 @@ class SplitwiseGroupsController {
             });
         }
         catch (error) {
-            console.error("Create group error:", error);
+            console.error("❌ Create group error:", error);
+            console.error("❌ Error details:", {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
             res.status(500).json({ error: "Failed to create group" });
         }
     }

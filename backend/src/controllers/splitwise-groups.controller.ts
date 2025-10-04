@@ -36,6 +36,7 @@ export class SplitwiseGroupsController {
       }
 
       // Start a transaction to create group and add all members
+      console.log('🔄 Starting group creation transaction...');
       const result = await prisma.$transaction(async (tx) => {
         // Upsert creator inside the same transaction to satisfy FK reliably
         const creatorUser = await tx.user.upsert({
@@ -124,6 +125,7 @@ export class SplitwiseGroupsController {
         });
 
         // Return the group with all members
+        console.log('✅ Group creation transaction completed successfully');
         return await tx.splitwiseGroup.findUnique({
           where: { id: group.id },
           include: {
@@ -155,7 +157,12 @@ export class SplitwiseGroupsController {
         group: result
       });
     } catch (error) {
-      console.error("Create group error:", error);
+      console.error("❌ Create group error:", error);
+      console.error("❌ Error details:", {
+        message: (error as Error).message,
+        stack: (error as Error).stack,
+        name: (error as Error).name
+      });
       res.status(500).json({ error: "Failed to create group" });
     }
   }

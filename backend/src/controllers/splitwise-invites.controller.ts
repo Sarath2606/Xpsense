@@ -133,6 +133,7 @@ export class SplitwiseInvitesController {
       }
 
       // Generate and store invitation
+      console.log('🔄 Creating invitation in database...');
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
@@ -145,6 +146,13 @@ export class SplitwiseInvitesController {
           invitedBy: userId,
           message: message?.trim() || null
         }
+      });
+
+      console.log('✅ Invitation created in database:', {
+        id: invitation.id,
+        email: invitation.email,
+        groupId: invitation.groupId,
+        token: token.substring(0, 8) + '...'
       });
 
       // Build accept URL to return to client regardless of email delivery

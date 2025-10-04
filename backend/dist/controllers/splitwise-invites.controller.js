@@ -115,6 +115,7 @@ class SplitwiseInvitesController {
                     return res.status(400).json({ error: "User is already a member of this group" });
                 }
             }
+            console.log('🔄 Creating invitation in database...');
             const token = crypto_1.default.randomBytes(32).toString('hex');
             const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
             const invitation = await prisma.splitwiseInvite.create({
@@ -126,6 +127,12 @@ class SplitwiseInvitesController {
                     invitedBy: userId,
                     message: message?.trim() || null
                 }
+            });
+            console.log('✅ Invitation created in database:', {
+                id: invitation.id,
+                email: invitation.email,
+                groupId: invitation.groupId,
+                token: token.substring(0, 8) + '...'
             });
             const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
             const acceptUrl = `${frontendUrl}/#splitwise/invite/accept?token=${token}`;
