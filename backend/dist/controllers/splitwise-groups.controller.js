@@ -20,6 +20,7 @@ class SplitwiseGroupsController {
                 return res.status(400).json({ error: "Members must be an array" });
             }
             console.log('🔄 Starting group creation transaction...');
+            console.log('🔄 Transaction data:', { name, description, currencyCode, members: members.length });
             const result = await prisma.$transaction(async (tx) => {
                 const creatorUser = await tx.user.upsert({
                     where: { email: userEmail },
@@ -34,6 +35,12 @@ class SplitwiseGroupsController {
                     }
                 });
                 console.log('[createGroup] creatorUser.id:', creatorUser.id, 'email:', creatorUser.email);
+                console.log('🔄 Creating group with data:', {
+                    name: name.trim(),
+                    description: description?.trim(),
+                    currencyCode: currencyCode.toUpperCase(),
+                    createdBy: creatorUser.id
+                });
                 const group = await tx.splitwiseGroup.create({
                     data: {
                         name: name.trim(),
@@ -42,6 +49,7 @@ class SplitwiseGroupsController {
                         createdBy: creatorUser.id
                     }
                 });
+                console.log('✅ Group created successfully:', { id: group.id, name: group.name });
                 const membersToCreate = [
                     {
                         groupId: group.id,
@@ -80,11 +88,13 @@ class SplitwiseGroupsController {
                         });
                     }
                 }
-                console.log('Creating members:', membersToCreate.length, 'members');
+                console.log('🔄 Creating members:', membersToCreate.length, 'members');
+                console.log('🔄 Members data:', membersToCreate);
                 await tx.splitwiseGroupMember.createMany({
                     data: membersToCreate,
                     skipDuplicates: true
                 });
+                console.log('✅ Members created successfully');
                 console.log('✅ Group creation transaction completed successfully');
                 return await tx.splitwiseGroup.findUnique({
                     where: { id: group.id },

@@ -37,6 +37,8 @@ export class SplitwiseGroupsController {
 
       // Start a transaction to create group and add all members
       console.log('🔄 Starting group creation transaction...');
+      console.log('🔄 Transaction data:', { name, description, currencyCode, members: members.length });
+      
       const result = await prisma.$transaction(async (tx) => {
         // Upsert creator inside the same transaction to satisfy FK reliably
         const creatorUser = await tx.user.upsert({
@@ -56,6 +58,13 @@ export class SplitwiseGroupsController {
         console.log('[createGroup] creatorUser.id:', creatorUser.id, 'email:', creatorUser.email);
 
         // Create the group first (use the created user ID directly)
+        console.log('🔄 Creating group with data:', {
+          name: name.trim(),
+          description: description?.trim(),
+          currencyCode: currencyCode.toUpperCase(),
+          createdBy: creatorUser.id
+        });
+        
         const group = await tx.splitwiseGroup.create({
           data: {
             name: name.trim(),
@@ -64,6 +73,8 @@ export class SplitwiseGroupsController {
             createdBy: creatorUser.id
           }
         });
+        
+        console.log('✅ Group created successfully:', { id: group.id, name: group.name });
 
         // Prepare members to add (including the creator as admin)
         const membersToCreate = [
@@ -118,11 +129,15 @@ export class SplitwiseGroupsController {
         }
 
         // Create all members
-        console.log('Creating members:', membersToCreate.length, 'members');
+        console.log('🔄 Creating members:', membersToCreate.length, 'members');
+        console.log('🔄 Members data:', membersToCreate);
+        
         await tx.splitwiseGroupMember.createMany({
           data: membersToCreate,
           skipDuplicates: true
         });
+        
+        console.log('✅ Members created successfully');
 
         // Return the group with all members
         console.log('✅ Group creation transaction completed successfully');
