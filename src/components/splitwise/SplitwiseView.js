@@ -170,6 +170,32 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
     return () => clearTimeout(timer);
   }, [authHookAuthenticated, user, loadGroups]);
 
+  // Periodic check for force refresh requests (backup mechanism)
+  useEffect(() => {
+    if (!authHookAuthenticated || !user) return;
+
+    const checkForRefreshRequest = () => {
+      const refreshRequest = localStorage.getItem('forceRefreshGroups');
+      if (refreshRequest) {
+        console.log('SplitwiseView: Periodic check found refresh request, forcing refresh...');
+        localStorage.removeItem('forceRefreshGroups');
+        groupsLoadedRef.current = false;
+        loadingRef.current = false;
+        setTimeout(() => {
+          loadGroups(true);
+        }, 100);
+      }
+    };
+
+    // Check every 2 seconds for refresh requests
+    const interval = setInterval(checkForRefreshRequest, 2000);
+    
+    // Also check immediately
+    checkForRefreshRequest();
+
+    return () => clearInterval(interval);
+  }, [authHookAuthenticated, user, loadGroups]);
+
   // Load groups from API on component mount - only once when authenticated
   useEffect(() => {
     // Only load groups if user is authenticated and groups haven't been loaded
@@ -218,10 +244,19 @@ const SplitwiseView = ({ onBack, onFloatingButtonStateChange }) => {
       }, 100);
     };
 
+    // Listen for both custom events and storage events (for cross-tab communication)
     window.addEventListener('forceRefreshGroups', handleForceRefresh);
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'forceRefreshGroups' && e.newValue) {
+        console.log('SplitwiseView: Storage-based refresh requested');
+        localStorage.removeItem('forceRefreshGroups'); // Clean up
+        handleForceRefresh();
+      }
+    });
     
     return () => {
       window.removeEventListener('forceRefreshGroups', handleForceRefresh);
+      window.removeEventListener('storage', handleForceRefresh);
     };
   }, [loadGroups]);
 

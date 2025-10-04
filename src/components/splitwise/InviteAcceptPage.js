@@ -66,13 +66,20 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
         // Call the callback if provided
         onInviteAccepted?.(response);
         
-        // Force refresh groups by clearing the loaded flag
+        // Force refresh groups by dispatching custom event and using localStorage
         window.dispatchEvent(new CustomEvent('forceRefreshGroups'));
+        localStorage.setItem('forceRefreshGroups', Date.now().toString());
         
-        // Redirect to Splitwise view after 3 seconds with refresh parameter
+        // Redirect to Splitwise view after 2 seconds (reduced from 3)
         setTimeout(() => {
-          window.location.href = '/#splitwise?refresh=groups';
-        }, 3000);
+          // Use hash routing format for the redirect
+          window.location.hash = '#splitwise';
+          // Also dispatch the refresh event again after redirect
+          setTimeout(() => {
+            window.dispatchEvent(new CustomEvent('forceRefreshGroups'));
+            localStorage.setItem('forceRefreshGroups', Date.now().toString());
+          }, 500);
+        }, 2000);
 
       } catch (err) {
         console.error('❌ Failed to accept invitation:', err);
@@ -85,7 +92,12 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
             errorMessage = 'You are already a member of this group. Redirecting you to the group...';
             // Auto-redirect to Splitwise after 2 seconds
             setTimeout(() => {
-              window.location.href = '/#splitwise';
+              window.location.hash = '#splitwise';
+              // Force refresh groups after redirect
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('forceRefreshGroups'));
+                localStorage.setItem('forceRefreshGroups', Date.now().toString());
+              }, 500);
             }, 2000);
           } else if (err.message.includes('expired') || err.message.includes('Invalid or expired')) {
             errorMessage = 'This invitation has expired. Please request a new invitation.';
@@ -95,7 +107,12 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
             errorMessage = 'This invitation is no longer valid. You may already be a member of the group or the invitation has been cancelled.';
             // Auto-redirect to Splitwise after 3 seconds
             setTimeout(() => {
-              window.location.href = '/#splitwise';
+              window.location.hash = '#splitwise';
+              // Force refresh groups after redirect
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('forceRefreshGroups'));
+                localStorage.setItem('forceRefreshGroups', Date.now().toString());
+              }, 500);
             }, 3000);
           } else {
             errorMessage = err.message;
@@ -192,7 +209,14 @@ const InviteAcceptPage = ({ onBack, onInviteAccepted }) => {
         <div className="mt-6 space-y-3">
           {error && (
             <button
-              onClick={() => window.location.href = '/#splitwise'}
+              onClick={() => {
+                window.location.hash = '#splitwise';
+                // Force refresh groups after redirect
+                setTimeout(() => {
+                  window.dispatchEvent(new CustomEvent('forceRefreshGroups'));
+                  localStorage.setItem('forceRefreshGroups', Date.now().toString());
+                }, 500);
+              }}
               className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors"
             >
               Go to Splitwise
