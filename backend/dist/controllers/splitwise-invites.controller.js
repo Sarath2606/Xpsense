@@ -91,8 +91,14 @@ class SplitwiseInvitesController {
                 }
             });
             if (!group) {
+                console.log('❌ Group not found for invitation:', { groupId: id, userId, userEmail: req.user?.email });
                 return res.status(404).json({ error: "Group not found" });
             }
+            console.log('✅ Group found for invitation:', {
+                groupId: group.id,
+                groupName: group.name,
+                creatorEmail: group.creator.email
+            });
             const existingUser = await prisma.user.findUnique({
                 where: { email: email.trim().toLowerCase() }
             });
